@@ -1,5 +1,7 @@
 # questions to ask professor
 # 1. Should I combine all this into a single nested dictionary?
+# 2. Should I store the tabular data as a list of dictionaries?
+# 3. Should I store the tabular data as a list of lists?
 
 import pandas as pd
 from pymongo import MongoClient
@@ -51,7 +53,7 @@ patient_info_dict = {
     "Height": df.iloc[7, 1],
     "Sex": df.iloc[6, 4],
     "Weight": df.iloc[7, 6],
-    "Doctor": df.iloc[5, 5],
+    "Doctor": df.iloc[5, 5],    
 }
 
 test_protocol_dict = {
@@ -75,26 +77,8 @@ test_protocol_dict = {
                 "Ave Kcal/kg.hr": df.iloc[120, 10]}
 }
 
-# Combine the dictionaries into one document
-document = {
-    "Metabolic Report Info": {"Report Info": report_info_dict,
-                              "Patient Info": patient_info_dict,
-                              "Test Protocol": test_protocol_dict}
-}
-#print(test_protocol_dict)
-
-st.write("JSON Converted File:")
-st.write(document)
-
-# Insert the document into MongoDB
-#result = collection.insert_one(document)
-
-# Print the inserted document's ID
-#print("Document inserted with ID:", result.inserted_id)
-
-# Retrieve the inserted document
-#retrieved_doc = collection.find_one({"_id": result.inserted_id})
-#print("Retrieved Document:", retrieved_doc)
+st.write("Report Info:")
+st.write(report_info_dict)
 
 ###########################################################################################
 # structured Data #
@@ -107,7 +91,28 @@ else:
     tabular_data.columns = ["Time", "VO2 STPD", "VO2/kg STPD", "Mets", "VCO2 STPD", "VE uncor.", "RQ", "FEO2", "FECO2", "REE", "RMR"]
     #print(tabular_data)
 
-    st.write("Tabular Data:")
-    st.write(tabular_data)
+tabular_data_dict = tabular_data.to_dict(orient="records")
+st.write("Tabular Data Dictionary:")
+st.write(tabular_data_dict)
 
+# Combine the dictionaries into one document
+document = {
+    "Metabolic Report Info": {"Report Info": report_info_dict,
+                              "Patient Info": patient_info_dict,
+                              "Test Protocol": test_protocol_dict,
+                              "Tabular Data": tabular_data_dict}
+}
+#print(test_protocol_dict)
 
+st.write("JSON Converted File:")
+st.write(document)
+
+# Insert the document into MongoDB
+result = collection.insert_one(document)
+
+# Print the inserted document's ID
+print("Document inserted with ID:", result.inserted_id)
+
+# Retrieve the inserted document
+retrieved_doc = collection.find_one({"_id": result.inserted_id})
+print("Retrieved Document:", retrieved_doc)
