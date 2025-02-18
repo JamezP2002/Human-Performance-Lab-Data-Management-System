@@ -8,8 +8,8 @@ from pymongo import MongoClient
 import streamlit as st
 
 # connecting to mongodb 
-client = MongoClient('mongodb://localhost:27017/')
-db = client['perfomanceLab']
+client = MongoClient('mongodb+srv://jamesP:AaqW2WmFW9TM_KC@performance-lab.cs28l.mongodb.net/')
+db = client['performance-lab']
 collection = db['rmr']
 
 # Load the Excel file and do a test set (just paitent infomation)
@@ -111,8 +111,9 @@ st.write(document)
 result = collection.insert_one(document)
 
 # Print the inserted document's ID
-print("Document inserted with ID:", result.inserted_id)
+st.write("Document inserted with ID:", result.inserted_id)
+#print("Document inserted with ID:", result.inserted_id)
 
 # Retrieve the inserted document
-retrieved_doc = collection.find_one({"_id": result.inserted_id})
-print("Retrieved Document:", retrieved_doc)
+#retrieved_doc = collection.find_one({"_id": result.inserted_id})
+#print("Retrieved Document:", retrieved_doc)
