@@ -3,14 +3,14 @@ from pymongo import MongoClient
 import streamlit as st
 
 # connecting to mongodb 
-client = MongoClient('mongodb://localhost:27017/')
-db = client['perfomanceLab']
+client = MongoClient('mongodb+srv://jamesP:AaqW2WmFW9TM_KC@performance-lab.cs28l.mongodb.net/')
+db = client['performance-lab']
 collection = db['vo2max']
 
 # Load the Excel file and do a test set (just paitent infomation)
 uploaded_file = st.file_uploader("Choose a file")
 #df = pd.read_excel(uploaded_file, header=None, engine="xlrd")
-df = pd.read_excel("ANTHONY_CIABURRI_0_20140823_0655.XLS", header=None, engine="xlrd")
+df = pd.read_excel(uploaded_file, header=None, engine="xlrd")
 
 st.write("Original File:")
 st.write(df)
@@ -44,7 +44,7 @@ test_protocol_dict = {
     "Test Enviroment": {"Insp. Temp": df.iloc[14,2], 
                         "Baro. Pressure": df.iloc[14,5],
                          "Insp. humid": df.iloc[14,8],
-                         "Exp. flow temp.": df.iloc[15, 3],
+                         "Exp. flow temp.": df.iloc[15, 1],
                          "Insp. O2": df.iloc[16, 1],
                          "Insp. CO2": df.iloc[16,4],
                          "Selc. Flowmeter": df.iloc[17, 1],
@@ -85,20 +85,22 @@ st.write(tabular_data_dict)
 ###########################################################################################
 
 # Combine the dictionaries into one document
-#document = {
-#    "VO2 Max Report Info": {"Report Info": report_info_dict,
-#                              "Tabular Data": tabular_data_dict}
-#}
+document = {
+    "VO2 Max Report Info": {"Report Info": report_info_dict,
+                            "Patient Info": patient_info_dict,
+                            "Test Protocol": test_protocol_dict,
+                              "Tabular Data": tabular_data_dict}
+}
 #print(test_protocol_dict)
 
 #st.write("JSON Converted File:")
 #st.write(document)
 
 # Insert the document into MongoDB
-#result = collection.insert_one(document)
+result = collection.insert_one(document)
 
 # Print the inserted document's ID
-#print("Document inserted with ID:", result.inserted_id)
+st.write("Document inserted with ID:", result.inserted_id)
 
 # Retrieve the inserted document
 #retrieved_doc = collection.find_one({"_id": result.inserted_id})
