@@ -8,7 +8,7 @@ from pymongo import MongoClient
 import streamlit as st
 
 # connecting to mongodb 
-client = MongoClient('mongodb+srv://jamesP:AaqW2WmFW9TM_KC@performance-lab.cs28l.mongodb.net/')
+client = MongoClient('<excript>')
 db = client['performance-lab']
 collection = db['rmr']
 

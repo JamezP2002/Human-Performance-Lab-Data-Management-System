@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 # connecting to mongodb 
 st.write("Connecting to database...")
-client = MongoClient('mongodb+srv://jamesP:AaqW2WmFW9TM_KC@performance-lab.cs28l.mongodb.net/')
+client = MongoClient('<excript>')
 db = client['performance-lab']
 collection = db['vo2max']
 st.write("Connected to database, retrieving the data.")
