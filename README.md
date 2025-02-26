@@ -63,11 +63,10 @@ This project is a **Human Performance Lab Data Management System** designed to s
    streamlit run streamlit_app.py
    ```
 
-## Usage
+## Usage (as of 2/15/2025)
 - Upload an **Excel file** containing test data.
 - View **parsed patient and test information**.
 - Analyze **visualizations** to interpret results.
-- TBD: Create **Reports** for the end user to review their results.
 
 ## Future Improvements
 - Implement additional tests beyond **VO2 Max** and **RMR**.
