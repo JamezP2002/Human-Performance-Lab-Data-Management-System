@@ -1,7 +1,7 @@
-# Performance Lab Data Management System
+# Human Performance Lab Data Management System
 
 ## Overview
-This project is a **Performance Lab Data Management System** designed to streamline the storage, processing, and visualization of physiological test data at the CHAMP Human Performance Lab, specifically right now the  **VO2 Max** and **Resting Metabolic Rate (RMR) tests**. The system utilizes **MongoDB** for data storage, **Pandas** for data handling, and **Streamlit** for an interactive web-based interface.
+This project is a **Human Performance Lab Data Management System** designed to streamline the storage, processing, and visualization of physiological test data at the CHAMP Human Performance Lab, specifically right now the  **VO2 Max** and **Resting Metabolic Rate (RMR) tests**. The system utilizes **MongoDB** for data storage, **Pandas** for data handling, and **Streamlit** for an interactive web-based interface.
 
 ## Features
 ### Implemented Tests:
