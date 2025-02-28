@@ -24,7 +24,6 @@ documents = list(collection.find())
 patient_names = [doc["VO2 Max Report Info"]["Patient Info"]["Name"] for doc in documents]
 selected_name = st.selectbox("Select Patient Name", patient_names)
 document = next(doc for doc in documents if doc["VO2 Max Report Info"]["Patient Info"]["Name"] == selected_name)
-st.write("Document loaded, extracting the data of: ", selected_name)
 
 # Extract Tabular Data
 tabular_data = document["VO2 Max Report Info"]["Tabular Data"]

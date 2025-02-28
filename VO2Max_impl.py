@@ -15,11 +15,9 @@ client = MongoClient(database_credentials)
 db = client['performance-lab']
 collection = db['vo2max']
 
-# Load the Excel file and do a test set (just paitent infomation)
+# Load the Excel file and do a test set
 uploaded_file = st.file_uploader("Choose a file")
-#df = pd.read_excel(uploaded_file, header=None, engine="xlrd")
 df = pd.read_excel(uploaded_file, header=None, engine="xlrd")
-
 st.write("Original File:")
 st.write(df)
 

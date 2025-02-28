@@ -1,9 +1,18 @@
 import streamlit as st
 
-# Set the title of the homepage
-st.title("Welcome to My Streamlit App")
+vo2Max_retrevial = st.Page("VO2Max_retrevial.py", title="VO2 Max Retrevial/Report")
+vo2Max_impl = st.Page("VO2Max_impl.py", title="VO2 Max Implementation")
+#rmr_impl = st.Page("RMR_impl.py", title="RMR Implementation")
+#rmr_retrevial = st.Page("RMR_retrevial.py", title="RMR Retrevial/Report")
+home = st.Page("home.py", title="Home")
 
-# Add a description
-st.write("""
-This is the homepage of my Streamlit app. Use the sidebar to navigate to different pages.
-""")
+pg = st.navigation(
+    {
+        "Homepage": [home], 
+        "Implementation": [vo2Max_impl],
+        "Reports": [vo2Max_retrevial]
+    }
+)
+
+st.set_page_config(page_title="CHAMP HPL SCSU", page_icon=":material/edit:", layout="wide", initial_sidebar_state="expanded")
+pg.run()
