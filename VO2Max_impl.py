@@ -24,6 +24,7 @@ st.write(df)
 ###########################################################################################
 # Unstructured Data #
 ###########################################################################################
+
 # Convert sections to list of their respective dictionaries
 report_info_dict = {
     "School": df.iloc[0,0],
@@ -60,31 +61,68 @@ test_protocol_dict = {
     "Best Sampling Values": {"Base O2": df.iloc[21, 1],
                              "Base CO2": df.iloc[21, 4],
                              "Measured O2": df.iloc[21, 7],
-                             "Measured CO2": df.iloc[21, 10]},
-    "Results": {"Max VO2":df.iloc[56, 1], 
-                "VO2max Percentile": df.iloc[58, 1]}
+                             "Measured CO2": df.iloc[21, 10]}
 }
 
-st.write(report_info_dict)
-st.write(patient_info_dict)
-st.write(test_protocol_dict)
+#st.write(report_info_dict)
+#st.write(patient_info_dict)
+#st.write(test_protocol_dict)
 
 ###########################################################################################
 # structured Data #
 ###########################################################################################
 
-if df.iloc[29:54, 0:21].empty:
+# Finding the start and end of the tabular data (dynamicly)
+start_row = 29
+end_row = start_row
+while end_row < len(df) and not (df.iloc[end_row, 0] == "End" or pd.isna(df.iloc[end_row, 0])):
+    end_row += 1
+
+# Check if the tabular data is empty
+if df.iloc[start_row:end_row, 0:21].empty:
     st.write("No tabular data")
 else:
-    st.write("Tabular Data:")
-    tabular_data = df.iloc[29:54, 0:21]
-    #st.write(tabular_data)
-    tabular_data.columns = ["Time", "VO2 STPD", "VO2/kg STPD", "Mets", "VCO2 STPD", "VE BTPS", "RER", "RR", "Vt BTPS", "FEO2", "FECO2", "HR", "TM SPD", "TM GRD", "AcKcal", "PetCO2", "PetO2", "VE/VCO2", "VE/VO2", "FATmin", "CHOmin"]
+    # checking if the tabular data has more than 19 columns
+    if df.shape[1] > 19: # if it does, it runs as standard
+        st.write("Tabular Data:")
+        tabular_data = df.iloc[start_row:end_row, 0:21]
+        tabular_data.columns = ["Time", "VO2 STPD", "VO2/kg STPD", "Mets", "VCO2 STPD", "VE BTPS", "RER", "RR", "Vt BTPS", "FEO2", "FECO2", "HR", "TM SPD", "TM GRD", "AcKcal", "PetCO2", "PetO2", "VE/VCO2", "VE/VO2", "FATmin", "CHOmin"]
+    # checking if the tabular data has less than 19 columns
+    # if it does, it drops "TM SPD", "TM GRD"
+    else:
+        st.write("Tabular Data:")
+        tabular_data = df.iloc[start_row:end_row, 0:19]
+        tabular_data.columns = ["Time", "VO2 STPD", "VO2/kg STPD", "Mets", "VCO2 STPD", "VE BTPS", "RER", "RR", "Vt BTPS", "FEO2", "FECO2", "HR", "AcKcal", "PetCO2", "PetO2", "VE/VCO2", "VE/VO2", "FATmin", "CHOmin"]
     st.write(tabular_data)
 
 tabular_data_dict = tabular_data.to_dict(orient="records")
-st.write("Tabular Data Dictionary:")
-st.write(tabular_data_dict)
+#st.write("Tabular Data Dictionary:")
+#st.write(tabular_data_dict)
+
+############################
+## More dynamic filtering ##
+############################
+
+# Find the start of the results section dynamically
+results_row = end_row + 2
+
+results_dict = {
+    "Results": {"Max VO2": df.iloc[results_row, 1]}
+}
+
+# Checking if VO2max Percentile is empty
+if not pd.isna(df.iloc[results_row + 2, 1]):
+    results_dict["Results"]["VO2max Percentile"] = df.iloc[results_row + 2, 1]
+
+# Add the results back to the test_protocol_dict
+test_protocol_dict.update(results_dict)
+
+st.title("Report Data")
+st.write(report_info_dict)
+st.write(patient_info_dict)
+st.write(test_protocol_dict)
+st.title("Tabular Data")
+st.write(tabular_data)
 
 ###########################################################################################
 # MongoDB #
