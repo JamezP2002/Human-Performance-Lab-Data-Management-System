@@ -4,12 +4,21 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import os
 from dotenv import load_dotenv, find_dotenv
+import boto3
+from matplotlib.backends.backend_pdf import PdfPages
 
 # find and load the .env file
 dotenv_path = os.path.abspath(os.path.join("capstone work/.env"))
 #print(dotenv_path)  # Debugging
 load_dotenv(dotenv_path)
+
+# load the environment variables
 database_credentials = os.getenv("database_credentials")
+aws_access_key_id = os.getenv("aws_access_key_id")
+aws_secret_access_key = os.getenv("aws_secret_access_key")
+
+# connecting to s3 bucket
+s3_client = boto3.client('s3', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
 
 # connecting to mongodb 
 #st.write("Connecting to database...")
@@ -36,6 +45,10 @@ if st.checkbox("Show raw tabular data"):
 # Create columns for better layout
 col1, col2 = st.columns(2)
 
+# Create a PdfPages object to save the plots
+pdf_path = f"{selected_name}_VO2Max_Plots.pdf"
+pdf_pages = PdfPages(pdf_path)
+
 # Plot V-Slope
 with col1:
     plt.figure(figsize=(10, 5))
@@ -46,6 +59,7 @@ with col1:
     plt.legend()
     plt.grid()
     st.pyplot(plt)
+    pdf_pages.savefig()  # Save the figure to the PDF
 
 # Plot VO2 ml
 with col2:
@@ -57,6 +71,7 @@ with col2:
     plt.legend()
     plt.grid()
     st.pyplot(plt)
+    pdf_pages.savefig()  # Save the figure to the PDF
 
 # Plot HR scatter
 with col1:
@@ -68,6 +83,7 @@ with col1:
     plt.legend()
     plt.grid()
     st.pyplot(plt)
+    pdf_pages.savefig()  # Save the figure to the PDF
 
 # Plot Fat and CHO Ox
 with col2:
@@ -84,6 +100,7 @@ with col2:
     fig.tight_layout()
     ax1.grid()
     st.pyplot(fig)
+    pdf_pages.savefig(fig)  # Save the figure to the PDF
 
 # Plot Ventilatory Equivalents & End Tidal CO2 Tension
 with col1:
@@ -101,6 +118,7 @@ with col1:
     fig.tight_layout()
     ax1.grid()
     st.pyplot(fig)
+    pdf_pages.savefig(fig)  # Save the figure to the PDF
 
 # Plot Ventilatory Equivalents & End Tidal O2 Tension
 with col2:
@@ -118,6 +136,7 @@ with col2:
     fig.tight_layout()
     ax1.grid()
     st.pyplot(fig)
+    pdf_pages.savefig(fig)  # Save the figure to the PDF
 
 # Plot Respiratory Exchange Ratio
 with col1:
@@ -129,8 +148,15 @@ with col1:
     plt.legend()
     plt.grid()
     st.pyplot(plt)
+    pdf_pages.savefig()  # Save the figure to the PDF
 
+# Close the PdfPages object
+pdf_pages.close()
 
-
+# store the plots created into a s3 bucket
+st.write("Saving plots to S3 bucket...")
+s3_client.upload_file(pdf_path, 'champ-hpl-bucket', f'plots/{pdf_path}')
+st.write("Plots saved to S3 bucket.")
+st.write("Done.")
 
 
