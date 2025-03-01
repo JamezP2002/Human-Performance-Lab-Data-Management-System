@@ -15,11 +15,23 @@ client = MongoClient(database_credentials)
 db = client['performance-lab']
 collection = db['vo2max']
 
+###########################################################################################
+# Introduction #
+###########################################################################################
+st.title("This is a VO2 Max Report Parser.")
+st.write("This app will parse the VO2 Max report and store it in a MongoDB database.")
+st.write("The report will be parsed into a dictionary and stored in the database.")
+st.write("Upload a VO2 Max report in Excel format to get started.")
+
 # Load the Excel file and do a test set
 uploaded_file = st.file_uploader("Choose a file")
 df = pd.read_excel(uploaded_file, header=None, engine="xlrd")
-st.write("Original File:")
-st.write(df)
+
+st.title("Original File:")
+st.dataframe(df)
+# if we wanna hide the original data
+#if st.checkbox("Show raw original data"):
+#    st.dataframe(df)
 
 ###########################################################################################
 # Unstructured Data #
@@ -84,16 +96,13 @@ if df.iloc[start_row:end_row, 0:21].empty:
 else:
     # checking if the tabular data has more than 19 columns
     if df.shape[1] > 19: # if it does, it runs as standard
-        st.write("Tabular Data:")
         tabular_data = df.iloc[start_row:end_row, 0:21]
         tabular_data.columns = ["Time", "VO2 STPD", "VO2/kg STPD", "Mets", "VCO2 STPD", "VE BTPS", "RER", "RR", "Vt BTPS", "FEO2", "FECO2", "HR", "TM SPD", "TM GRD", "AcKcal", "PetCO2", "PetO2", "VE/VCO2", "VE/VO2", "FATmin", "CHOmin"]
     # checking if the tabular data has less than 19 columns
     # if it does, it drops "TM SPD", "TM GRD"
     else:
-        st.write("Tabular Data:")
         tabular_data = df.iloc[start_row:end_row, 0:19]
         tabular_data.columns = ["Time", "VO2 STPD", "VO2/kg STPD", "Mets", "VCO2 STPD", "VE BTPS", "RER", "RR", "Vt BTPS", "FEO2", "FECO2", "HR", "AcKcal", "PetCO2", "PetO2", "VE/VCO2", "VE/VO2", "FATmin", "CHOmin"]
-    st.write(tabular_data)
 
 tabular_data_dict = tabular_data.to_dict(orient="records")
 #st.write("Tabular Data Dictionary:")
@@ -117,12 +126,15 @@ if not pd.isna(df.iloc[results_row + 2, 1]):
 # Add the results back to the test_protocol_dict
 test_protocol_dict.update(results_dict)
 
+# printing out the data all formated
 st.title("Report Data")
 st.write(report_info_dict)
 st.write(patient_info_dict)
 st.write(test_protocol_dict)
 st.title("Tabular Data")
 st.write(tabular_data)
+st.title("Tabular Data Dictionary:")
+st.write(tabular_data_dict)
 
 ###########################################################################################
 # MongoDB #
