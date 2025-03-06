@@ -18,7 +18,11 @@ aws_access_key_id = os.getenv("aws_access_key_id")
 aws_secret_access_key = os.getenv("aws_secret_access_key")
 
 # connecting to s3 bucket
-s3_client = boto3.client('s3', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
+s3_client = boto3.client('s3',
+                          aws_access_key_id=aws_access_key_id, 
+                          aws_secret_access_key=aws_secret_access_key,
+                          region_name='us-east-1'
+                          )
 
 # connecting to mongodb 
 #st.write("Connecting to database...")
@@ -153,10 +157,23 @@ with col1:
 # Close the PdfPages object
 pdf_pages.close()
 
+# Define file and bucket
+file_name = pdf_path
+bucket_name = "champ-hpl-bucket"
+s3_key = f'plots/{pdf_path}'
+
+# asking user if they want to save the plots to s3
+st.write("Do you want to save the plots to S3 bucket?")
+if st.button("Save Plots to S3"):
+    st.write("Saving plots to S3 bucket...")
+    s3_client.upload_file(file_name, bucket_name, s3_key)
+    st.write("Plots saved to S3 bucket.")
+    st.write("Done.")
+
 # store the plots created into a s3 bucket
-st.write("Saving plots to S3 bucket...")
-s3_client.upload_file(pdf_path, 'champ-hpl-bucket', f'plots/{pdf_path}')
-st.write("Plots saved to S3 bucket.")
-st.write("Done.")
+#st.write("Saving plots to S3 bucket...")
+#s3_client.upload_file(file_name, bucket_name, s3_key)
+#st.write("Plots saved to S3 bucket.")
+#st.write("Done.")
 
 
