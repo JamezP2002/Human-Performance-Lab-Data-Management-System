@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import os
 from dotenv import load_dotenv, find_dotenv
 import boto3
-from matplotlib.backends.backend_pdf import PdfPages
+import reportlab
 
 # find and load the .env file
 dotenv_path = os.path.abspath(os.path.join("capstone work/.env"))
@@ -49,10 +49,6 @@ if st.checkbox("Show raw tabular data"):
 # Create columns for better layout
 col1, col2 = st.columns(2)
 
-# Create a PdfPages object to save the plots
-pdf_path = f"{selected_name}_VO2Max_Plots.pdf"
-pdf_pages = PdfPages(pdf_path)
-
 # Plot V-Slope
 with col1:
     plt.figure(figsize=(10, 5))
@@ -63,7 +59,6 @@ with col1:
     plt.legend()
     plt.grid()
     st.pyplot(plt)
-    pdf_pages.savefig()  # Save the figure to the PDF
 
 # Plot VO2 ml
 with col2:
@@ -75,7 +70,6 @@ with col2:
     plt.legend()
     plt.grid()
     st.pyplot(plt)
-    pdf_pages.savefig()  # Save the figure to the PDF
 
 # Plot HR scatter
 with col1:
@@ -87,7 +81,6 @@ with col1:
     plt.legend()
     plt.grid()
     st.pyplot(plt)
-    pdf_pages.savefig()  # Save the figure to the PDF
 
 # Plot Fat and CHO Ox
 with col2:
@@ -104,7 +97,6 @@ with col2:
     fig.tight_layout()
     ax1.grid()
     st.pyplot(fig)
-    pdf_pages.savefig(fig)  # Save the figure to the PDF
 
 # Plot Ventilatory Equivalents & End Tidal CO2 Tension
 with col1:
@@ -122,7 +114,6 @@ with col1:
     fig.tight_layout()
     ax1.grid()
     st.pyplot(fig)
-    pdf_pages.savefig(fig)  # Save the figure to the PDF
 
 # Plot Ventilatory Equivalents & End Tidal O2 Tension
 with col2:
@@ -140,7 +131,6 @@ with col2:
     fig.tight_layout()
     ax1.grid()
     st.pyplot(fig)
-    pdf_pages.savefig(fig)  # Save the figure to the PDF
 
 # Plot Respiratory Exchange Ratio
 with col1:
@@ -152,23 +142,20 @@ with col1:
     plt.legend()
     plt.grid()
     st.pyplot(plt)
-    pdf_pages.savefig()  # Save the figure to the PDF
 
-# Close the PdfPages object
-pdf_pages.close()
 
 # Define file and bucket
-file_name = pdf_path
-bucket_name = "champ-hpl-bucket"
-s3_key = f'plots/{pdf_path}'
+#file_name = pdf_path
+#bucket_name = "champ-hpl-bucket"
+#s3_key = f'plots/{pdf_path}'
 
 # asking user if they want to save the plots to s3
 st.write("Do you want to save the plots to S3 bucket?")
-if st.button("Save Plots to S3"):
-    st.write("Saving plots to S3 bucket...")
-    s3_client.upload_file(file_name, bucket_name, s3_key)
-    st.write("Plots saved to S3 bucket.")
-    st.write("Done.")
+#if st.button("Save Plots to S3"):
+#    st.write("Saving plots to S3 bucket...")
+#    s3_client.upload_file(file_name, bucket_name, s3_key)
+#    st.write("Plots saved to S3 bucket.")
+#    st.write("Done.")
 
 # store the plots created into a s3 bucket
 #st.write("Saving plots to S3 bucket...")

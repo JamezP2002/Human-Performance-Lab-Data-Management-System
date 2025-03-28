@@ -17,7 +17,7 @@ st.markdown(
         </p>
         <p style="font-size: 20px;">
             - <b>VO2 Max Retrevial/Report</b>: Retrieve and report VO2 Max data.<br>
-            - <b>VO2 Max Implementation</b>: Implement VO2 Max protocols.
+            - <b>VO2 Max Uploader</b>: Uploads VO2 Max protocols.
         </p>
         <p style="font-size: 20px;">
             Explore the sections to learn more about each feature.

@@ -18,7 +18,7 @@ collection = db['vo2max']
 ###########################################################################################
 # Introduction #
 ###########################################################################################
-st.title("This is a VO2 Max Report Parser.")
+st.title("This is a VO2 Max Report Uploader.")
 st.write("This app will parse the VO2 Max report and store it in a MongoDB database.")
 st.write("The report will be parsed into a dictionary and stored in the database.")
 st.write("Upload a VO2 Max report in Excel format to get started.")
