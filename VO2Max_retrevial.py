@@ -371,6 +371,10 @@ if st.session_state.reviewing:
                     story.append(Spacer(1, 10))
                     story.append(Paragraph(f"{comment}", styles["Normal"]))
                     story.append(Spacer(1, 10))
+                    if logo_path and os.path.exists(logo_path):
+                        logo = Image(logo_path, width=100, height=100)
+                        logo.hAlign = "RIGHT"
+                    story.append(logo)
                     story.append(PageBreak())
 
                 doc.build(story)
