@@ -251,39 +251,54 @@ if st.session_state.reviewing:
     else:
         if col2.button("✅ Generate Final PDF Report"):
             with st.spinner("Generating PDF..."):
-                # Generate plot images with comments
+                # Create plot images
                 pdf_buffers = []
                 for name, func in plot_functions:
-                    fig, ax = plt.subplots(figsize=(7, 3.5))
+                    fig, ax = plt.subplots(figsize=(9, 6))
                     func(fig, ax)
                     ax.set_title(f"{name}", fontsize=10)
+                    plt.tight_layout()
                     buf = io.BytesIO()
                     fig.savefig(buf, format="PNG")
                     buf.seek(0)
                     pdf_buffers.append((buf, st.session_state.plot_comments.get(name, "")))
                     plt.close(fig)
-
-                doc = BaseDocTemplate("sample_report.pdf", pagesize=LETTER)
+        
+                doc = BaseDocTemplate("test_report.pdf", pagesize=LETTER)
                 styles = getSampleStyleSheet()
                 width, height = LETTER
                 header_height = 180
                 body_height = height - doc.topMargin - doc.bottomMargin - header_height
 
-                # First page frames
-                header_frame = Frame(doc.leftMargin, doc.bottomMargin + body_height,
-                                     doc.width, header_height, id='header')
-                frame_left = Frame(doc.leftMargin, doc.bottomMargin,
-                                   doc.width / 2 - 6, body_height, id='left')
-                frame_right = Frame(doc.leftMargin + doc.width / 2 + 6, doc.bottomMargin,
-                                    doc.width / 2 - 6, body_height, id='right')
-                bottom_frame = Frame(doc.leftMargin, doc.bottomMargin,
-                                doc.width, body_height, id='bottom')
+                # margins for the document
+                doc.topMargin = 5   
+                doc.bottomMargin = 140
+                doc.leftMargin = 72   
+                doc.rightMargin = 72   
 
-                # Plot page frames - top for plot, bottom for comments
-                plot_frame = Frame(doc.leftMargin, doc.bottomMargin + body_height/2,
-                                 doc.width, body_height/2, id='plot')
-                comment_frame = Frame(doc.leftMargin, doc.bottomMargin,
-                                    doc.width, body_height/2, id='comment')
+                header_frame = Frame(doc.leftMargin, doc.bottomMargin + body_height, doc.width, header_height, id='header')
+                frame_left = Frame(doc.leftMargin, doc.bottomMargin, doc.width / 2 - 6, body_height, id='left')
+                frame_right = Frame(doc.leftMargin + doc.width / 2 + 6, doc.bottomMargin, doc.width / 2 - 6, body_height, id='right')
+                bottom_frame = Frame(doc.leftMargin, doc.bottomMargin, doc.width, body_height, id='bottom')
+
+                plot_height = 350  # Adjust this to how tall you want your plot
+                comment_height = height - doc.topMargin - doc.bottomMargin - plot_height + 60
+
+                plot_frame = Frame(
+                    doc.leftMargin,
+                    height - doc.topMargin - plot_height,
+                    doc.width,
+                    plot_height,
+                    id='plot'
+                )
+
+                comment_frame = Frame(
+                    doc.leftMargin,
+                    doc.bottomMargin,
+                    doc.width,
+                    comment_height,
+                    id='comment'
+                )
 
                 doc.addPageTemplates([
                     PageTemplate(id='ContentPage', frames=[header_frame, frame_left, frame_right, bottom_frame]),
@@ -292,20 +307,21 @@ if st.session_state.reviewing:
 
                 story = []
 
+                # Logo placeholder (skip if you don't have a file)
                 logo_path = "graphics/CHAMPlogo.png"
                 if logo_path and os.path.exists(logo_path):
                     logo = Image(logo_path, width=100, height=100)
-                    logo.hAlign = "LEFT"
+                    logo.hAlign = "CENTER"
                     story.append(logo)
 
-                # First page content remains the same
                 story.extend([
-                    Paragraph("CHAMP Human Performance Lab", styles["Title"]),
+                    Paragraph("CHAMP Human Performance Lab Report", styles["Title"]),
                     Paragraph('<para align="center">Southern Connecticut State University</para>', styles["Heading2"]),
                     Spacer(1, 10),
                     FrameBreak()
                 ])
 
+                # Athlete Info
                 athlete_data = st.session_state.get("athlete_data", {})
                 athlete_table_data = [["Athlete Info", ""]] + [[k, str(v)] for k, v in athlete_data.items()]
                 athlete_table = Table(athlete_table_data, colWidths=[100, 120])
@@ -318,6 +334,7 @@ if st.session_state.reviewing:
                 ])
                 story.extend([athlete_table, FrameBreak()])
 
+                # VO2 Info
                 vo2_data = st.session_state.get("vo2_data", {})
                 vo2_table_data = [["Test Results", ""]] + [[k, str(v)] for k, v in vo2_data.items()]
                 vo2_table = Table(vo2_table_data, colWidths=[100, 150])
@@ -330,35 +347,37 @@ if st.session_state.reviewing:
                 ])
                 story.append(vo2_table)
                 story.append(FrameBreak())
-                story.append(Spacer(1, 100))
+                story.append(Spacer(1, 110))
 
                 initial_report_text = st.session_state.get("initial_report_text", "")
-                print("initial_report_text = ", repr(initial_report_text)) # debug
+                #print("initial_report_text = ", repr(initial_report_text)) # debug
                 story.extend([
                     Paragraph("<b>Summary Report:</b>", styles["Heading3"]),
                     Spacer(1, 10),
                     Paragraph(initial_report_text or "No report provided.", styles["Normal"]),
-                    Spacer(1, 50),
+                    Spacer(1, 20),
                 ])
 
                 story.append(NextPageTemplate('PlotPage'))
                 story.append(PageBreak())
 
-                # Add plots and comments with new layout
+                # Plots and comments
                 for buf, comment in pdf_buffers:
-                    img = Image(buf, width=400, height=200)
+                    img = Image(buf, width=500, height=300)
                     img.hAlign = "CENTER"
                     story.append(img)
                     story.append(FrameBreak())
-                    story.append(Paragraph(f"<b>Analysis:</b> {comment}", styles["Normal"]))
+                    story.append(Paragraph(f"<b>Analysis:</b>", styles["Heading3"]))
+                    story.append(Spacer(1, 10))
+                    story.append(Paragraph(f"{comment}", styles["Normal"]))
+                    story.append(Spacer(1, 10))
                     story.append(PageBreak())
 
                 doc.build(story)
-                st.success("🎉 PDF Report generated successfully!")
+                st.success("✅ PDF generated successfully!")
 
-                # Show download button
-                with open("sample_report.pdf", "rb") as f:
-                    st.download_button("📥 Download PDF", f, file_name="sample_report.pdf")
+                with open("test_report.pdf", "rb") as f:
+                    st.download_button("📥 Download PDF", f, file_name="test_report.pdf")
 
                 st.session_state.reviewing = False
 
