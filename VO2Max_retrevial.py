@@ -142,9 +142,7 @@ if not st.session_state.reviewing:
     # Dropdown for patient selection
     documents = list(collection.find())
     name_id_pairs = ["None"] + [f"{doc['VO2 Max Report Info']['Patient Info']['Name']} | {doc['_id']}" for doc in documents]
-
     selected_pair = st.selectbox("Choose Patient:", name_id_pairs)
-
     selected_name = "None" if selected_pair == "None" else selected_pair.split("|")[0].strip()
 
     if selected_name != "None":
@@ -250,6 +248,10 @@ if st.session_state.reviewing:
             st.rerun()
     else:
         if col2.button("✅ Generate Final PDF Report"):
+            # creating a pdf report name with the name of the chosen patient
+            athlete_data = st.session_state.get("athlete_data", {})
+            name = athlete_data.get("Name", "Unknown")  # Get name from athlete_data session state
+            pdf_path = f"test_report_{name}.pdf"  # Create PDF filename using the patient's name
             with st.spinner("Generating PDF..."):
                 # Create plot images
                 pdf_buffers = []
@@ -264,7 +266,7 @@ if st.session_state.reviewing:
                     pdf_buffers.append((buf, st.session_state.plot_comments.get(name, "")))
                     plt.close(fig)
         
-                doc = BaseDocTemplate("test_report.pdf", pagesize=LETTER)
+                doc = BaseDocTemplate(pdf_path, pagesize=LETTER)
                 styles = getSampleStyleSheet()
                 width, height = LETTER
                 header_height = 180
@@ -380,8 +382,19 @@ if st.session_state.reviewing:
                 doc.build(story)
                 st.success("✅ PDF generated successfully!")
 
-                with open("test_report.pdf", "rb") as f:
-                    st.download_button("📥 Download PDF", f, file_name="test_report.pdf")
+                # Define file and bucket
+                file_name = pdf_path
+                bucket_name = "champ-hpl-bucket"
+                s3_key = f'reports/{pdf_path}'
+
+                # asking user if they want to save the plots to s3
+                st.write("Saving plots to S3 bucket...")
+                s3_client.upload_file(file_name, bucket_name, s3_key)
+                st.write("Plots saved to S3 bucket.")
+                st.write("Done.")
+
+                with open(pdf_path, "rb") as f:
+                    st.download_button("📥 Download PDF", f, file_name=pdf_path)
 
                 st.session_state.reviewing = False
 
@@ -394,7 +407,7 @@ if st.session_state.reviewing:
     # Define file and bucket
     #file_name = pdf_path
     #bucket_name = "champ-hpl-bucket"
-    #s3_key = f'plots/{pdf_path}'
+    #s3_key = f'reports/{pdf_path}'
 
     # asking user if they want to save the plots to s3
     #st.write("Do you want to save the plots to S3 bucket?")
