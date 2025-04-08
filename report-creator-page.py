@@ -3,6 +3,7 @@ import streamlit as st
 import os
 from dotenv import load_dotenv
 import boto3
+import matplotlib.pyplot as plt
 from vo2max_test import VO2MaxTest
 
 # find and load the .env file
@@ -32,18 +33,23 @@ if 'vo2max_test' not in st.session_state:
     st.session_state.vo2max_test = False
 if 'rmr_test' not in st.session_state:
     st.session_state.rmr_test = False
+if 'reviewing' not in st.session_state:
+    st.session_state.reviewing = False
 
 # Navigation logic
 def go_to_vo2max():
     st.session_state.test_section = False
     st.session_state.vo2max_test = True
     st.session_state.rmr_test = False
+    st.session_state.reviewing = False
 
 def go_to_rmr():
     st.session_state.test_section = False
     st.session_state.vo2max_test = False
     st.session_state.rmr_test = True
+    st.session_state.reviewing = False
 
+# Main app logic based on session state
 if st.session_state.test_section:
 
     # App Title
@@ -61,34 +67,94 @@ if st.session_state.test_section:
         st.session_state.test_section = False
         st.session_state.vo2max_test = True
         st.session_state.rmr_test = False
+        st.session_state.reviewing = False
         st.rerun()
     elif selected_test == 'rmr':
         st.session_state.test_section = False
         st.session_state.vo2max_test = False
         st.session_state.rmr_test = True
+        st.session_state.reviewing = False
         st.rerun()
 
+# 2. VO2Max Test Section
 if st.session_state.vo2max_test:
-    # Placeholder for VO2max test implementation
-    st.write("VO2max Test selected. Implement the logic here.")
+    st.write("VO2max Test selected. Please select a patient from the dropdown above to proceed.")
 
     test = VO2MaxTest()
-    name, _id = test.select_patient()
+    patient_info, test_protocol, results, df = test.select_patient()
 
-    if name:
-        st.write(f"You selected patient: **{name}** (ID: `{_id}`)") # Replace with actual user_id
+    # Display patient details
+    st.subheader("Patient Info")
+    st.write(patient_info)
+
+    st.subheader("Test Protocol")
+    st.write(test_protocol)
+
+    st.subheader("Plots")
+    test.create_plots()
+
+    if st.checkbox("Show raw tabular data"):
+        st.dataframe(df)
+
+    if st.button("Next Step: Review Plots"):
+        # Clear VO2max-related states
+        st.session_state.test_section = False
+        st.session_state.vo2max_test = False
+        st.session_state.rmr_test = False
+
+        # Set review state
+        st.session_state.reviewing = True
+        st.session_state.plot_index = 0
+        st.session_state.plot_comments = {}
+        st.rerun()
 
     if st.button("Back to Test Selection"):
         st.session_state.test_section = True
         st.session_state.vo2max_test = False
         st.rerun()
-    
+
+# 3. Review Report Page
+if st.session_state.reviewing:
+    st.write("Reviewing VO2max Test Plots")
+    st.subheader("Review Plots")
+
+    test = VO2MaxTest()
+    test.review_report()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 if st.session_state.rmr_test:
     # Placeholder for RMR test implementation
-    st.write("RMR Test selected. Implement the logic here.")
+    st.write("RMR Test selected. WIP")
 
     if st.button("Back to Test Selection"):
         st.session_state.test_section = True
         st.session_state.rmr_test = False
+        st.session_state.reviewing = False
         st.rerun()

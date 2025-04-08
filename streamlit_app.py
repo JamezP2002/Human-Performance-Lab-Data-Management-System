@@ -10,7 +10,7 @@ pg = st.navigation(
     {
         "Homepage": [home], 
         "Uploader": [vo2Max_impl],
-        "Report Creator": [vo2Max_retrevial]
+        "Report Creator": [report_creator_page := st.Page("report-creator-page.py", title="Report Creator")],
     }
 )
 
