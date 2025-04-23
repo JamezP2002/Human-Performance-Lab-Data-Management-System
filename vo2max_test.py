@@ -5,8 +5,16 @@ import matplotlib.pyplot as plt
 import os
 from dotenv import load_dotenv, find_dotenv
 import boto3
+from reportlab.platypus import (BaseDocTemplate, Frame, PageTemplate, FrameBreak,
+                                Paragraph, Spacer, Table, TableStyle, Image, NextPageTemplate,
+                                PageBreak)
+from reportlab.lib.pagesizes import LETTER
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib import colors
+from reportlab.platypus import Image as RLImage
 import io
 import numpy as np
+from datetime import datetime
 
 class VO2MaxTest:
     def __init__(self, user_id=None):
@@ -20,40 +28,43 @@ class VO2MaxTest:
         self.client = MongoClient(database_credentials)
         self.db = self.client['performance-lab']
         self.collection = self.db['vo2max']
-    
-    def get_paitent(self):
-        pass
+        self.users_col = self.db['users']
+        self.reports_col = self.db['reports']
 
-    def select_patient(self):
-        """Displays patient dropdown and returns selected patient name and ID."""
-        documents = list(self.collection.find())
-        name_id_pairs = ["None"] + [
-            f"{doc['VO2 Max Report Info']['Patient Info']['Name']} | {doc['_id']}"
-            for doc in documents
-        ]
-        selected_pair = st.selectbox("Choose Patient:", name_id_pairs)
-        selected_name = "None" if selected_pair == "None" else selected_pair.split("|")[0].strip()
+        # S3 setup
+        aws_access_key_id = os.getenv("aws_access_key_id")
+        aws_secret_access_key = os.getenv("aws_secret_access_key")
 
-        if selected_name != "None":
-            document = next(doc for doc in documents if doc["VO2 Max Report Info"]["Patient Info"]["Name"] == selected_name)
+        self.s3_client = boto3.client(
+            's3',
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key,
+            region_name='us-east-1'
+        )
+
+    def parse_existing_test(self, document):
+        try:
             st.session_state.selected_document = document
 
-            patient_info = document["VO2 Max Report Info"]["Patient Info"]
-            test_protocol = document["VO2 Max Report Info"]["Test Protocol"]
+            report_info = document["VO2 Max Report Info"]
+            patient_info = report_info["Patient Info"]
+            test_protocol = report_info["Test Protocol"]
             results = test_protocol["Results"]
-            tabular_data = document["VO2 Max Report Info"]["Tabular Data"]
+            tabular_data = report_info["Tabular Data"]
+
             df = pd.DataFrame(tabular_data)
 
-            # converting from l to ml
+            # Convert VO2/VCO2 from L to mL
             columns_to_convert = ['VO2 STPD', 'VCO2 STPD']
             df[columns_to_convert] = df[columns_to_convert] * 1000
 
             st.session_state.df = df
 
             return patient_info, test_protocol, results, df
-        else:
-            st.info("Please select a patient to continue.")
-            return selected_name
+
+        except Exception as e:
+            st.error(f"Failed to parse test document: {e}")
+            return None
         
     def get_plot_functions(self):
         df = st.session_state.get("df")
@@ -210,79 +221,27 @@ class VO2MaxTest:
         ]
 
         return plot_functions
-    
-    def create_plots(self):
-        df = st.session_state.get("df")
 
-        plot_functions = self.get_plot_functions()
-        fig, axs = plt.subplots(4, 2, figsize=(20, 24))
-        axs = axs.flatten()
+    def generate_report_data(self):
+        document = st.session_state.get("selected_document")
 
-        for i, (title, func) in enumerate(plot_functions):
-            ax = axs[i]
-            func(ax, df)
-            ax.set_title(title)
+        if document is None:
+            st.error("No patient data found.")
+            return None, None
 
-        st.pyplot(fig)
+        patient_info = document["VO2 Max Report Info"]["Patient Info"]
+        test_protocol = document["VO2 Max Report Info"]["Test Protocol"]
+        results = test_protocol["Results"]
 
-    def plot_single_figure(self, index):
-        df = st.session_state.get("df")
-        plot_functions = self.get_plot_functions()
-        title, func = plot_functions[index]
-        fig, ax = plt.subplots(figsize=(8, 5))
-        func(ax, df)
-        st.subheader(title)
-        st.pyplot(fig)
-
-    def review_report(self):
-        df = st.session_state.get("df")
-
-        if 'plot_index' not in st.session_state:
-            st.session_state.plot_index = 0
-
-        if 'plot_comments' not in st.session_state: 
-            st.session_state.plot_comments = {}
-
-        plot_functions = self.get_plot_functions()
-        total_plots = len(plot_functions)
-
-        st.subheader(f"Reviewing Plot ({st.session_state.plot_index + 1}/{total_plots})")
-
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            self.plot_single_figure(st.session_state.plot_index)
-
-        with col2:
-            plot_name, _ = plot_functions[st.session_state.plot_index]
-            comment = st.text_area(f"Comments for '{plot_name}':", key=f"comment_{st.session_state.plot_index}")
-            st.session_state.plot_comments[plot_name] = comment
-
-        c1, c2 = st.columns([1, 1])
-
-        if st.session_state.plot_index > 0 and c1.button("← Back"):
-            st.session_state.plot_index -= 1
-            st.rerun()
-
-        if st.session_state.plot_index < total_plots - 1:
-            if c2.button("Next Plot →"):
-                st.session_state.plot_index += 1
-                st.rerun()
-        else:
-            if c2.button("✅ Generate Final PDF Report"):
-                self.generate_pdf()
-
-    def generate_pdf(self, patient_info, test_protocol, results):
-        # some logic for the sport based on the exercise protocol in the test protocol
-        sport = None
+        # logic for sport
+        sport = "Unknown"
         if test_protocol.get("Exercise Device") == "Treadmill":
             sport = "Running"
         elif test_protocol.get("Exercise Device") == "Bike":
             sport = "Biking"
-        else:
-            sport = "Unknown"  # Default to Unknown if no specific protocol is matched
 
-        # get the athlete info for the pdf report
-        paitent_info_for_pdf = {
+        # prepare patient info
+        patient_info_for_pdf = {
             "Name": patient_info.get("Name"),
             "Sex": patient_info.get("Sex"),
             "Age": patient_info.get("Age"),
@@ -290,12 +249,308 @@ class VO2MaxTest:
             "Weight": patient_info.get("Weight")
         }
 
-        # get the test results for the pdf report
+        # prepare test results
         test_results_for_pdf = {
             "Sport": sport,
             "Test Degree": test_protocol.get("Test Degree", "Unknown"),
             "Exercise Device": test_protocol.get("Exercise Device", "Unknown"),
-            "Max VO2": results.get("Max VO2", "N/A"),  
-            "VO2max Percentile": results.get("VO2max Percentile", "N/A")  
-        }  
+            "Max VO2": results.get("Max VO2", "N/A"),
+            "VO2max Percentile": results.get("VO2max Percentile", "N/A")
+        }
 
+        # save to session for PDF generation
+        st.session_state.athlete_data = patient_info_for_pdf
+        st.session_state.vo2_data = test_results_for_pdf
+
+        return patient_info_for_pdf, test_results_for_pdf
+
+    def load_saved_report(self):
+        report_col = self.db["report"] 
+        user_id = st.session_state.selected_patient["_id"]
+        test_id = st.session_state.selected_test["_id"]
+
+        report = report_col.find_one({"user_id": user_id, "test_id": test_id})
+        if report:
+            # Restore summary
+            st.session_state.initial_report_text = report.get("summary", "")
+
+            # Restore per-plot comments and flags
+            for plot in report.get("plots", []):
+                idx = plot.get("index")
+                title = plot.get("title")
+                comment = plot.get("comment", "")
+                include = plot.get("include", True)
+
+                st.session_state[f"comment_{idx}"] = comment
+                st.session_state[f"include_{idx}"] = include
+
+                if "plot_comments" not in st.session_state:
+                    st.session_state.plot_comments = {}
+                if "include_plot_flags" not in st.session_state:
+                    st.session_state.include_plot_flags = {}
+
+                st.session_state.plot_comments[title] = comment
+                st.session_state.include_plot_flags[title] = include
+
+            return True
+        return False
+
+    def report_builder(self):
+        df = st.session_state.get("df")
+        plot_functions = self.get_plot_functions()
+        reports_col = self.db["reports"]
+
+        if 'plot_comments' not in st.session_state:
+            st.session_state.plot_comments = {}
+        if 'include_plot_flags' not in st.session_state:
+            st.session_state.include_plot_flags = {title: True for title, _ in plot_functions}
+
+        st.subheader("📊 Plots & Doctor Comments")
+
+        for i, (title, func) in enumerate(plot_functions):
+            st.markdown(f"---")
+            st.markdown(f"### {title}")
+
+            fig, ax = plt.subplots(figsize=(9, 5))
+            func(ax, df)
+            st.pyplot(fig)
+
+            include_key = f"include_{i}"
+            comment_key = f"comment_{i}"
+            plot_flag_dict = st.session_state.include_plot_flags
+            comment_dict = st.session_state.plot_comments
+
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                comment = st.text_area(f"🗨️ Doctor's Comments:", key=comment_key, height=100, value=comment_dict.get(title, ""))
+            with col2:
+                include = st.checkbox("Include in Report", value=plot_flag_dict.get(title, True), key=include_key)
+
+            if st.button(f"💾 Save '{title}' Section", key=f"save_{i}"):
+                # Save to session state
+                comment_dict[title] = comment
+                plot_flag_dict[title] = include
+
+                # Save to MongoDB
+                user_id = st.session_state.selected_patient["_id"]
+                test_id = st.session_state.selected_test["_id"]
+
+                self.db["reports"].update_one(
+                    {"user_id": user_id, "test_id": test_id},
+                    {
+                        "$set": {
+                            f"plots.{i}": {
+                                "index": i,
+                                "title": title,
+                                "comment": comment,
+                                "include": include
+                            },
+                            "last_updated": datetime.utcnow()
+                        },
+                        "$setOnInsert": {
+                            "summary": st.session_state.get("initial_report_text", "")
+                        }
+                    },
+                    upsert=True
+                )
+
+                st.success(f"Saved section for '{title}' ✅")
+
+        # Summary Report Box at the Bottom
+        st.markdown("---")
+        st.subheader("📝 Summary Report")
+        if "initial_report_text" not in st.session_state:
+            st.session_state.initial_report_text = ""
+
+        st.session_state.initial_report_text = st.text_area(
+            "Enter your summary or interpretation:",
+            value=st.session_state.initial_report_text,
+            height=150
+        )
+
+        # Save all + PDF
+        if st.button("💾 Save All Comments and Selections"):
+            user_id = st.session_state.selected_patient["_id"]
+            test_id = st.session_state.selected_test["_id"]
+            summary_text = st.session_state.initial_report_text
+
+            plots_data = []
+            for i, (title, _) in enumerate(plot_functions):
+                comment = st.session_state.get(f"comment_{i}", "")
+                include = st.session_state.get(f"include_{i}", True)
+
+                st.session_state.plot_comments[title] = comment
+                st.session_state.include_plot_flags[title] = include
+
+                plots_data.append({
+                    "index": i,
+                    "title": title,
+                    "comment": comment,
+                    "include": include
+                })
+
+            reports_col.update_one(
+                {"user_id": user_id, "test_id": test_id},
+                {
+                    "$set": {
+                        "user_id": user_id,
+                        "test_id": test_id,
+                        "summary": summary_text,
+                        "plots": plots_data,
+                        "last_updated": datetime.utcnow()
+                    }
+                },
+                upsert=True
+            )
+
+            st.success("✅ All comments and selections saved to MongoDB.")
+
+        if st.button("📄 Generate PDF Report"):
+            self.generate_report_data()
+            self.generate_pdf(self.s3_client)
+
+
+    def generate_pdf(self, s3_client):
+        df = st.session_state.get("df")
+        plot_functions = self.get_plot_functions()
+        athlete_data = st.session_state.get("athlete_data", {})
+        vo2_data = st.session_state.get("vo2_data", {})
+        plot_comments = st.session_state.get("plot_comments", {})
+        initial_report_text = st.session_state.get("initial_report_text", "")
+
+        name = athlete_data.get("Name", "Unknown")
+        pdf_path = f"test_report_{name}.pdf"
+        pdf_buffers = []
+
+        # Generate plot images
+        include_flags = st.session_state.get("include_plot_flags", {})
+        for plot_name, func in plot_functions:
+            if not include_flags.get(plot_name, True):
+                continue  # Skip this plot
+
+            fig, ax = plt.subplots(figsize=(9, 6))
+            func(ax, df)
+            ax.set_title(plot_name, fontsize=10)
+            plt.tight_layout()
+            buf = io.BytesIO()
+            fig.savefig(buf, format="PNG")
+            buf.seek(0)
+            pdf_buffers.append((plot_name, buf, plot_comments.get(plot_name, "")))
+            plt.close(fig)
+
+        # Set up document
+        doc = BaseDocTemplate(pdf_path, pagesize=LETTER)
+        styles = getSampleStyleSheet()
+        width, height = LETTER
+
+        # Layout
+        doc.topMargin = 5
+        doc.bottomMargin = 140
+        doc.leftMargin = 72
+        doc.rightMargin = 72
+        header_height = 180
+        body_height = height - doc.topMargin - doc.bottomMargin - header_height
+        plot_height = 350
+        comment_height = height - doc.topMargin - doc.bottomMargin - plot_height + 60
+
+        doc.addPageTemplates([
+            PageTemplate(
+                id='ContentPage',
+                frames=[
+                    Frame(doc.leftMargin, doc.bottomMargin + body_height, doc.width, header_height, id='header'),
+                    Frame(doc.leftMargin, doc.bottomMargin, doc.width / 2 - 6, body_height, id='left'),
+                    Frame(doc.leftMargin + doc.width / 2 + 6, doc.bottomMargin, doc.width / 2 - 6, body_height, id='right'),
+                    Frame(doc.leftMargin, doc.bottomMargin, doc.width, body_height, id='bottom')
+                ]
+            ),
+            PageTemplate(
+                id='PlotPage',
+                frames=[
+                    Frame(doc.leftMargin, height - doc.topMargin - plot_height, doc.width, plot_height, id='plot'),
+                    Frame(doc.leftMargin, doc.bottomMargin, doc.width, comment_height, id='comment')
+                ]
+            )
+        ])
+
+        # Build story
+        story = []
+
+        logo_path = "graphics/CHAMPlogo.png"
+        if logo_path and os.path.exists(logo_path):
+            logo = Image(logo_path, width=100, height=100)
+            logo.hAlign = "CENTER"
+            story.append(logo)
+
+        story.extend([
+            Paragraph("CHAMP Human Performance Lab Report", styles["Title"]),
+            Paragraph('<para align="center">Southern Connecticut State University</para>', styles["Heading2"]),
+            Spacer(1, 10),
+            FrameBreak()
+        ])
+
+        # Athlete info
+        athlete_table_data = [["Athlete Info", ""]] + [[k, str(v)] for k, v in athlete_data.items()]
+        athlete_table = Table(athlete_table_data, colWidths=[100, 120])
+        athlete_table.setStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.lightblue),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ])
+        story.extend([athlete_table, FrameBreak()])
+
+        # VO2 test info
+        vo2_table_data = [["Test Results", ""]] + [[k, str(v)] for k, v in vo2_data.items()]
+        vo2_table = Table(vo2_table_data, colWidths=[100, 150])
+        vo2_table.setStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
+            ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ])
+        story.append(vo2_table)
+        story.append(FrameBreak())
+        story.append(Spacer(1, 110))
+
+        # Summary text
+        story.extend([
+            Paragraph("<b>Summary Report:</b>", styles["Heading3"]),
+            Spacer(1, 10),
+            Paragraph(initial_report_text or "No report provided.", styles["Normal"]),
+            Spacer(1, 20),
+            NextPageTemplate('PlotPage'),
+            PageBreak()
+        ])
+
+        # Add plots + comments
+        for plot_name, buf, comment in pdf_buffers:
+            img = Image(buf, width=500, height=300)
+            img.hAlign = "CENTER"
+            story.append(img)
+            story.append(FrameBreak())
+            story.append(Paragraph("<b>Analysis:</b>", styles["Heading3"]))
+            story.append(Spacer(1, 10))
+            story.append(Paragraph(comment, styles["Normal"]))
+            story.append(Spacer(1, 10))
+            if logo_path and os.path.exists(logo_path):
+                logo = Image(logo_path, width=100, height=100)
+                logo.hAlign = "RIGHT"
+                story.append(logo)
+            story.append(PageBreak())
+
+        doc.build(story)
+        st.success("✅ PDF generated successfully!")
+
+        # Upload to S3
+        bucket_name = "champ-hpl-bucket"
+        s3_key = f"reports/{pdf_path}"
+        st.write("Saving plots to S3 bucket...")
+        s3_client.upload_file(pdf_path, bucket_name, s3_key)
+        st.write("Plots saved to S3 bucket.")
+
+        with open(pdf_path, "rb") as f:
+            st.download_button("📥 Download PDF", f, file_name=pdf_path)
+
+        st.session_state.reviewing = False

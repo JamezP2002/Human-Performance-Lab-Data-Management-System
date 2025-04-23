@@ -13,7 +13,10 @@ database_credentials = os.getenv("database_credentials")
 # connecting to mongodb 
 client = MongoClient(database_credentials)
 db = client['performance-lab']
-collection = db['vo2max']
+
+# Users and Tests collections
+users_collection = db['users']
+tests_collection = db['vo2max']  
 
 ###########################################################################################
 # Introduction #
@@ -48,6 +51,7 @@ report_info_dict = {
              "Second": df.iloc[2, 9]}}
 
 patient_info_dict = {
+    # create a paitent ID that is unique for each patient, linked to the user document for better searching
     "File Number": df.iloc[5, 3],
     "Name": df.iloc[5, 1],
     "Age": df.iloc[6, 1],
@@ -140,24 +144,72 @@ st.write(tabular_data_dict)
 # MongoDB #
 ###########################################################################################
 
-# Combine the dictionaries into one document
-document = {
-    "VO2 Max Report Info": {"Report Info": report_info_dict,
-                            "Patient Info": patient_info_dict,
-                            "Test Protocol": test_protocol_dict,
-                              "Tabular Data": tabular_data_dict}
+# Extract relevant info for user identification
+name = patient_info_dict["Name"]
+age = patient_info_dict["Age"]
+sex = patient_info_dict["Sex"]
+
+# Check if user already exists by name (optionally check more fields)
+user = users_collection.find_one({"Name": name})
+
+if user:
+    user_id = user["_id"]
+else:
+    # Create a new user document
+    new_user = {
+        "Name": name,
+        "Age": age,
+        "Sex": sex,
+        "File Number": patient_info_dict["File Number"],
+        "Height": patient_info_dict["Height"],
+        "Weight": patient_info_dict["Weight"],
+        "Doctor": patient_info_dict["Doctor"],
+        "test_ids": []  # Optional: reverse reference
+    }
+    user_id = users_collection.insert_one(new_user).inserted_id
+
+# Create the test document and link to user
+test_document = {
+    "user_id": user_id,
+    "VO2 Max Report Info": {
+        "Report Info": report_info_dict,
+        "Patient Info": patient_info_dict,
+        "Test Protocol": test_protocol_dict,
+        "Tabular Data": tabular_data_dict
+    }
 }
+test_result = tests_collection.insert_one(test_document)
+
+# Optional: update user document with test reference
+users_collection.update_one(
+    {"_id": user_id},
+    {"$push": {"test_ids": test_result.inserted_id}}
+)
+
+# Feedback to user
+st.success(f"Test uploaded and linked to user: {name}")
+st.write("User ID:", user_id)
+st.write("Test Document ID:", test_result.inserted_id)
+
+# Combine the dictionaries into one document
+#document = {
+#    "VO2 Max Report Info": {"Report Info": report_info_dict,
+#                            "Patient Info": patient_info_dict,
+#                            "Test Protocol": test_protocol_dict,
+#                              "Tabular Data": tabular_data_dict}
+#}
 #print(test_protocol_dict)
 
 #st.write("JSON Converted File:")
 #st.write(document)
 
 # Insert the document into MongoDB
-result = collection.insert_one(document)
+#result = collection.insert_one(document)
 
 # Print the inserted document's ID
-st.write("Document inserted with ID:", result.inserted_id)
+#st.write("Document inserted with ID:", result.inserted_id)
 
 # Retrieve the inserted document
 #retrieved_doc = collection.find_one({"_id": result.inserted_id})
 #print("Retrieved Document:", retrieved_doc)
+

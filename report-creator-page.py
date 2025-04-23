@@ -12,15 +12,6 @@ load_dotenv(dotenv_path)
 
 # load the environment variables
 database_credentials = os.getenv("database_credentials")
-aws_access_key_id = os.getenv("aws_access_key_id")
-aws_secret_access_key = os.getenv("aws_secret_access_key")
-
-# connecting to s3 bucket
-s3_client = boto3.client('s3',
-                          aws_access_key_id=aws_access_key_id, 
-                          aws_secret_access_key=aws_secret_access_key,
-                          region_name='us-east-1'
-                          )
 
 # connecting to mongodb
 client = MongoClient(database_credentials)
@@ -81,37 +72,73 @@ if st.session_state.vo2max_test:
     st.write("VO2max Test selected. Please select a patient from the dropdown above to proceed.")
 
     test = VO2MaxTest()
-    patient_info, test_protocol, results, df = test.select_patient()
+    selection = test.select_patient()
 
-    # Display patient details
-    st.subheader("Patient Info")
-    st.write(patient_info)
+    if selection is not None:
+        patient_info, test_protocol, results, df = selection
 
-    st.subheader("Test Protocol")
-    st.write(test_protocol)
+        st.subheader("🧍 Patient Info")
 
-    st.subheader("Plots")
-    test.create_plots()
+        col1, col2 = st.columns(2)
 
-    if st.checkbox("Show raw tabular data"):
-        st.dataframe(df)
+        with col1:
+            st.markdown(f"**Name:** {patient_info.get('Name', 'N/A')}")
+            st.markdown(f"**Age:** {patient_info.get('Age', 'N/A')} years")
+            st.markdown(f"**Height:** {patient_info.get('Height', 'N/A'):.1f} cm")
 
-    if st.button("Next Step: Review Plots"):
-        # Clear VO2max-related states
-        st.session_state.test_section = False
-        st.session_state.vo2max_test = False
-        st.session_state.rmr_test = False
+        with col2:
+            st.markdown(f"**Weight:** {patient_info.get('Weight', 'N/A'):.1f} kg")
+            st.markdown(f"**Sex:** {patient_info.get('Sex', 'N/A')}")
 
-        # Set review state
-        st.session_state.reviewing = True
-        st.session_state.plot_index = 0
-        st.session_state.plot_comments = {}
-        st.rerun()
+        st.subheader("🏃 Test Protocol")
 
-    if st.button("Back to Test Selection"):
-        st.session_state.test_section = True
-        st.session_state.vo2max_test = False
-        st.rerun()
+        col3, col4 = st.columns(2)
+
+        with col3:
+            st.markdown(f"**Test Degree:** {test_protocol.get('Test Degree', 'N/A')}")
+            st.markdown(f"**Exercise Device:** {test_protocol.get('Exercise Device', 'N/A')}")
+
+        test_env = test_protocol.get("Test Enviroment", {})
+        best_vals = test_protocol.get("Best Sampling Values", {})
+        results = results or {}
+
+        st.subheader("📈 Test Results")
+
+        col5, col6 = st.columns(2)
+
+        with col5:
+            st.markdown(f"**Max VO₂:** {results.get('Max VO2', 'N/A'):.2f} L/min")
+
+        with col6:
+            st.markdown(f"**VO₂max Percentile:** {results.get('VO2max Percentile', 'N/A')}")
+
+        st.subheader("Plots")
+        test.create_plots()
+
+        if st.checkbox("Show raw tabular data"):
+            st.dataframe(df)
+
+        st.subheader("Summary Report")
+        st.session_state.initial_report_text = st.text_area(
+            "Enter your summary or interpretation:",
+            value=st.session_state.get("initial_report_text", ""),
+            height=150
+        )
+
+        if st.button("Next Step: Review Plots"):
+            st.session_state.test_section = False
+            st.session_state.vo2max_test = False
+            st.session_state.rmr_test = False
+
+            st.session_state.reviewing = True
+            st.session_state.plot_index = 0
+            st.session_state.plot_comments = {}
+            st.rerun()
+
+        if st.button("Back to Test Selection"):
+            st.session_state.test_section = True
+            st.session_state.vo2max_test = False
+            st.rerun()
 
 # 3. Review Report Page
 if st.session_state.reviewing:
@@ -120,6 +147,12 @@ if st.session_state.reviewing:
 
     test = VO2MaxTest()
     test.review_report()
+
+    if st.button("Back to Test Selection"):
+        st.session_state.test_section = True
+        st.session_state.reviewing = False
+        st.session_state.vo2max_test = False
+        st.rerun()
 
 
 
