@@ -42,7 +42,7 @@ class VO2MaxTest:
             region_name='us-east-1'
         )
 
-    def parse_existing_test(self, document):
+    def parse_test(self, document):
         try:
             st.session_state.selected_document = document
 
@@ -542,15 +542,27 @@ class VO2MaxTest:
 
         doc.build(story)
         st.success("✅ PDF generated successfully!")
+        st.write("PDF saved as:", pdf_path)
 
-        # Upload to S3
-        bucket_name = "champ-hpl-bucket"
-        s3_key = f"reports/{pdf_path}"
-        st.write("Saving plots to S3 bucket...")
-        s3_client.upload_file(pdf_path, bucket_name, s3_key)
-        st.write("Plots saved to S3 bucket.")
-
+        # Offer download button
         with open(pdf_path, "rb") as f:
             st.download_button("📥 Download PDF", f, file_name=pdf_path)
 
+        # Ask user if they want to upload to S3
+        st.write("Would you like to upload this report to S3?")
+        upload_confirm = st.checkbox("✅ Yes, upload to S3")
+
+        # Only upload if user checks the box
+        if upload_confirm:
+            st.write("Uploading PDF to S3...")
+            bucket_name = "champ-hpl-bucket"
+            s3_key = f"reports/{os.path.basename(pdf_path)}"  # make sure to not repeat full local path
+
+            try:
+                s3_client.upload_file(pdf_path, bucket_name, s3_key)
+                st.success("📤 Report successfully uploaded to S3!")
+            except Exception as e:
+                st.error(f"❌ Upload failed: {e}")
+
+        # Reset reviewing state once done
         st.session_state.reviewing = False

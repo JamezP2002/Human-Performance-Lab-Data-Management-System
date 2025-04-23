@@ -114,7 +114,7 @@ if not st.session_state['report_builder'] and not st.session_state['reviewing']:
                 st.warning("No matching patient found.")
 
 # ===============================
-# Report Builder Section
+# Report Builder Section for VO2 Max Tests
 # ===============================
 if st.session_state['report_builder']:
     st.subheader("📝 Report Builder")
@@ -123,7 +123,7 @@ if st.session_state['report_builder']:
     # Retrieve the selected test and initialize the appropriate test class
     test_data = st.session_state.selected_test
     test = VO2MaxTest()  # Eventually can be dynamic based on test_type
-    selection = test.parse_existing_test(test_data)
+    selection = test.parse_test(test_data)
 
     if selection:
         patient_info, test_protocol, results, df = selection  # Unpack parsed test data
