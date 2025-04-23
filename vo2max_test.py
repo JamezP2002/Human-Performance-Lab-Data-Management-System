@@ -311,9 +311,10 @@ class VO2MaxTest:
             st.markdown(f"---")
             st.markdown(f"### {title}")
 
-            fig, ax = plt.subplots(figsize=(9, 5))
+            fig, ax = plt.subplots(figsize=(6, 3.5))
             func(ax, df)
-            st.pyplot(fig)
+            fig.tight_layout() 
+            st.pyplot(fig, use_container_width=False)
 
             include_key = f"include_{i}"
             comment_key = f"comment_{i}"
@@ -322,7 +323,16 @@ class VO2MaxTest:
 
             col1, col2 = st.columns([3, 1])
             with col1:
-                comment = st.text_area(f"🗨️ Doctor's Comments:", key=comment_key, height=100, value=comment_dict.get(title, ""))
+                st.markdown(
+                    "<div style='max-width: 400px;'>", unsafe_allow_html=True
+                )
+                comment = st.text_area(
+                    "🗨️ Lab Tech's Comments:",
+                    key=comment_key,
+                    height=100,
+                    value=comment_dict.get(title, "")
+                )
+                st.markdown("</div>", unsafe_allow_html=True)
             with col2:
                 include = st.checkbox("Include in Report", value=plot_flag_dict.get(title, True), key=include_key)
 
@@ -428,9 +438,9 @@ class VO2MaxTest:
             if not include_flags.get(plot_name, True):
                 continue  # Skip this plot
 
-            fig, ax = plt.subplots(figsize=(9, 6))
+            fig, ax = plt.subplots(figsize=(5.5, 3.5))
             func(ax, df)
-            ax.set_title(plot_name, fontsize=10)
+            ax.set_title(plot_name, fontsize=7)
             plt.tight_layout()
             buf = io.BytesIO()
             fig.savefig(buf, format="PNG")
@@ -450,8 +460,12 @@ class VO2MaxTest:
         doc.rightMargin = 72
         header_height = 180
         body_height = height - doc.topMargin - doc.bottomMargin - header_height
-        plot_height = 350
-        comment_height = height - doc.topMargin - doc.bottomMargin - plot_height + 60
+
+        # Calculate reduced margins for PlotPage
+        plot_left_margin = 30
+        plot_right_margin = 30
+        usable_width = width - plot_left_margin - plot_right_margin
+        half_width = (usable_width - 12) / 2  # 6pt gutter between columns
 
         doc.addPageTemplates([
             PageTemplate(
@@ -466,8 +480,9 @@ class VO2MaxTest:
             PageTemplate(
                 id='PlotPage',
                 frames=[
-                    Frame(doc.leftMargin, height - doc.topMargin - plot_height, doc.width, plot_height, id='plot'),
-                    Frame(doc.leftMargin, doc.bottomMargin, doc.width, comment_height, id='comment')
+                    Frame(plot_left_margin, height - 350, half_width, 300, id='plot_left'),
+                    Frame(plot_left_margin + half_width + 12, height - 350, half_width, 300, id='plot_right'),
+                    Frame(plot_left_margin, doc.bottomMargin, usable_width, 350, id='comments')
                 ]
             )
         ])
@@ -524,22 +539,38 @@ class VO2MaxTest:
             PageBreak()
         ])
 
-        # Add plots + comments
-        for plot_name, buf, comment in pdf_buffers:
-            img = Image(buf, width=500, height=300)
-            img.hAlign = "CENTER"
-            story.append(img)
-            story.append(FrameBreak())
-            story.append(Paragraph("<b>Analysis:</b>", styles["Heading3"]))
+        # Add paired plots + comments
+        for i in range(0, len(pdf_buffers), 2):
+            left = pdf_buffers[i]
+            right = pdf_buffers[i+1] if i+1 < len(pdf_buffers) else None
+
+            for plot_buf in [left, right]:
+                if not plot_buf:
+                    continue
+                plot_name, buf, _ = plot_buf
+                img = Image(buf, width=half_width, height=190)
+                img.hAlign = "CENTER"
+                story.append(img)
+                story.append(FrameBreak())
+
+            story.append(Paragraph("<b>Comments:</b>", styles["Heading2"]))
             story.append(Spacer(1, 10))
-            story.append(Paragraph(comment, styles["Normal"]))
-            story.append(Spacer(1, 10))
+            for plot_buf in [left, right]:
+                if not plot_buf:
+                    continue
+                plot_name, _, comment = plot_buf
+                story.append(Paragraph(f"<b>{plot_name}:</b>", styles["Normal"]))
+                story.append(Paragraph(comment or "No comment provided.", styles["Normal"]))
+                story.append(Spacer(1, 10))
+
             if logo_path and os.path.exists(logo_path):
-                logo = Image(logo_path, width=100, height=100)
+                logo = Image(logo_path, width=60, height=60)
                 logo.hAlign = "RIGHT"
                 story.append(logo)
+
             story.append(PageBreak())
 
+        # build story and output
         doc.build(story)
         st.success("✅ PDF generated successfully!")
         st.write("PDF saved as:", pdf_path)
