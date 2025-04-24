@@ -50,9 +50,9 @@ if not st.session_state['report_builder'] and not st.session_state['reviewing']:
                     with col1:
                         st.markdown(f"**Age:** {selected_patient.get('Age')} years")
                         st.markdown(f"**Sex:** {selected_patient.get('Sex')}")
-                        st.markdown(f"**Height:** {selected_patient.get('Height', 'N/A')} cm")
+                        st.markdown(f"**Height:** {selected_patient.get('Height', 'N/A')} in")
                     with col2:
-                        st.markdown(f"**Weight:** {selected_patient.get('Weight', 'N/A')} kg")
+                        st.markdown(f"**Weight:** {selected_patient.get('Weight', 'N/A')} lb")
                         st.markdown(f"**Doctor:** {selected_patient.get('Doctor', 'N/A')}")
 
                     # Find all tests (VO2 Max ATM)
