@@ -145,9 +145,9 @@ if st.session_state['report_builder']:
         with col1:
             st.markdown(f"**Name:** {patient_info.get('Name', 'N/A')}")
             st.markdown(f"**Age:** {patient_info.get('Age', 'N/A')} years")
-            st.markdown(f"**Height:** {patient_info.get('Height', 'N/A'):.1f} cm")
+            st.markdown(f"**Height:** {patient_info.get('Height', 'N/A'):.1f} in")
         with col2:
-            st.markdown(f"**Weight:** {patient_info.get('Weight', 'N/A'):.1f} kg")
+            st.markdown(f"**Weight:** {patient_info.get('Weight', 'N/A'):.1f} lb")
             st.markdown(f"**Sex:** {patient_info.get('Sex', 'N/A')}")
 
         # ===============================

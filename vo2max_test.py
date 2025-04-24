@@ -70,143 +70,129 @@ class VO2MaxTest:
         df = st.session_state.get("df")
 
         def plot_vslope(ax, df):
-            # Original scatter plot
-            ax.scatter(df['VO2 STPD'], df['VCO2 STPD'], label='V-Slope', marker='o')
-            
-            # Sort data by VO2
+            ax.scatter(df['VO2 STPD'], df['VCO2 STPD'], label='V-Slope', marker='o', s=10)
             sorted_data = df.sort_values('VO2 STPD')
             vo2_values = sorted_data['VO2 STPD'].values
             vco2_values = sorted_data['VCO2 STPD'].values
-            
-            # Find the approximate threshold point
             mid_point = len(vo2_values) // 2
-            
-            # Fit lines before and after threshold
+
             z1 = np.polyfit(vo2_values[:mid_point], vco2_values[:mid_point], 1)
             p1 = np.poly1d(z1)
-            
+
             z2 = np.polyfit(vo2_values[mid_point:], vco2_values[mid_point:], 1)
             p2 = np.poly1d(z2)
-            
-            # Find intersection point by solving p1(x) = p2(x)
+
             a, b = z1
             c, d = z2
-            intersection_x = (d-b)/(a-c)
+            intersection_x = (d - b) / (a - c)
             intersection_y = p1(intersection_x)
-            
-            # Plot trend lines up to intersection point
-            x_range1 = np.linspace(vo2_values.min(), vo2_values.max() - 900, 50)
-            x_range2 = np.linspace(vo2_values.min() + 700, vo2_values.max(), 50)
+
+            x_range1 = np.linspace(vo2_values.min(), vo2_values.max() - 700, 50)
+            x_range2 = np.linspace(vo2_values.min() + 1100, vo2_values.max(), 50)
             ax.plot(x_range1, p1(x_range1), '--', color='green', label='Pre-threshold')
             ax.plot(x_range2, p2(x_range2), '--', color='red', label='Post-threshold')
-            
-            # Add vertical line at intersection
+
             ax.axvline(x=intersection_x, color='blue', linestyle=':', label='Threshold')
-            
-            ax.set_xlabel("VO2 STPD (mL/min)")
-            ax.set_ylabel("VCO2 STPD (mL/min)")
-            ax.set_title("V-Slope")
+
+            ax.set_xlabel("VO2 STPD (mL/min)", fontweight='bold')
+            ax.set_ylabel("VCO2 STPD (mL/min)", fontweight='bold')
+            ax.set_title("V-Slope", fontweight='bold')
             ax.legend()
             ax.grid()
 
         def plot_vo2(ax, df):
-            # Original scatter plot
-            ax.scatter(df['Time'], df['VO2 STPD'], label='VO2 ml', marker='o')
-            
-            # Add polynomial trendline
+            ax.scatter(df['Time'], df['VO2 STPD'], label='VO2 ml', marker='o', s = 10)
             z = np.polyfit(df['Time'], df['VO2 STPD'], 3)
             p = np.poly1d(z)
             x_trend = np.linspace(df['Time'].min(), df['Time'].max(), 100)
-            ax.plot(x_trend, p(x_trend), '--', color='tab:red', label='VO2 Trend')
-            
-            ax.set_xlabel("Time (minutes)")
-            ax.set_ylabel("VO2 STPD (mL/min)")
-            ax.set_title("VO2 ml over Time")
+            ax.plot(x_trend, p(x_trend), '--', color='red', label='VO2 Trend')
+
+            ax.set_xlabel("Time (minutes)", fontweight='bold')
+            ax.set_ylabel("VO2 STPD (mL/min)", fontweight='bold')
+            ax.set_title("VO2 ml over Time", fontweight='bold')
             ax.legend()
             ax.grid()
 
         def plot_hr(ax, df):
-            ax.scatter(df['Time'], df['HR'], label='Heart Rate', marker='o')
-            ax.set_xlabel("Time (minutes)")
-            ax.set_ylabel("Heart Rate (bpm)")
-            ax.set_title("Heart Rate over Time")
+            ax.scatter(df['Time'], df['HR'], label='Heart Rate', marker='o', s=10)
+            ax.set_xlabel("Time (minutes)", fontweight='bold')
+            ax.set_ylabel("Heart Rate (bpm)", fontweight='bold')
+            ax.set_title("Heart Rate over Time", fontweight='bold')
             ax.legend()
             ax.grid()
 
         def plot_fat_cho(ax, df):
-            # Original scatter plots
-            ax.scatter(df['Time'], df['FATmin'], label='Fat Ox (g/min)', marker='o', color='tab:blue')
-            ax.set_xlabel("Time (minutes)")
-            ax.set_ylabel("Fat Oxidation (g/min)", color='tab:blue')
+            ax.scatter(df['Time'], df['FATmin'], label='Fat Ox (g/min)', marker='o', color='tab:blue', s=10)
+            ax.set_xlabel("Time (minutes)", fontweight='bold')
+            ax.set_ylabel("Fat Oxidation (g/min)", fontweight='bold', color='tab:blue')
             ax.tick_params(axis='y', labelcolor='tab:blue')
-            
-            # Add polynomial trendline for fat oxidation
+
             z = np.polyfit(df['Time'], df['FATmin'], 3)
             p = np.poly1d(z)
             x_trend = np.linspace(df['Time'].min(), df['Time'].max(), 100)
-            ax.plot(x_trend, p(x_trend), '--', color='tab:blue', label='Fat Ox Trend')
-            
-            # CHO plot on secondary axis
+            ax.plot(x_trend, p(x_trend), '--', color='red', label='Fat Ox Trend')
+
             ax2 = ax.twinx()
-            ax2.scatter(df['Time'], df['CHOmin'], label='CHO Ox (g/min)', marker='o', color='tab:orange')
-            ax2.set_ylabel("CHO Oxidation (g/min)", color='tab:orange')
+            ax2.scatter(df['Time'], df['CHOmin'], label='CHO Ox (g/min)', marker='o', color='tab:orange', s=10)
+            ax2.set_ylabel("CHO Oxidation (g/min)", fontweight='bold', color='tab:orange')
             ax2.tick_params(axis='y', labelcolor='tab:orange')
-            
-            ax.set_title("Fat and CHO Oxidation over Time")
+
+            ax.set_title("Fat and CHO Oxidation over Time", fontweight='bold')
             ax.grid()
 
         def plot_vent_co2(ax, df):
-            ax.scatter(df['Time'], df['VE/VO2'], label='VE/VO2', marker='o', color='tab:blue')
-            ax.scatter(df['Time'], df['VE/VCO2'], label='VE/VCO2', marker='o', color='tab:green')
-            ax.set_xlabel("Time (minutes)")
-            ax.set_ylabel("VE/VO2 & VE/VCO2", color='tab:blue')
+            ax.scatter(df['Time'], df['VE/VO2'], label='VE/VO2', marker='o', color='tab:blue', s=10)
+            ax.scatter(df['Time'], df['VE/VCO2'], label='VE/VCO2', marker='o', color='tab:green', s=10)
+            ax.set_xlabel("Time (minutes)", fontweight='bold')
+            ax.set_ylabel("VE/VO2 & VE/VCO2", fontweight='bold', color='tab:blue')
             ax.tick_params(axis='y', labelcolor='tab:blue')
+
             ax2 = ax.twinx()
-            ax2.scatter(df['Time'], df['PetCO2'], label='PetCO2', marker='o', color='tab:orange')
-            # Add polynomial trendline for PetCO2
+            ax2.scatter(df['Time'], df['PetCO2'], label='PetCO2', marker='o', color='tab:orange', s=10)
+
             z = np.polyfit(df['Time'], df['PetCO2'], 3)
             p = np.poly1d(z)
             x_trend = np.linspace(df['Time'].min(), df['Time'].max(), 100)
-            ax2.plot(x_trend, p(x_trend), '--', color='tab:orange', label='PetCO2 Trend')
-            
-            ax2.set_ylabel("PetCO2", color='tab:orange')
+            ax2.plot(x_trend, p(x_trend), '--', color='red', label='PetCO2 Trend')
+
+            ax2.set_ylabel("PetCO2", fontweight='bold', color='tab:orange')
             ax2.tick_params(axis='y', labelcolor='tab:orange')
-            ax.set_title("Ventilatory Equivalents & PetCO2 over Time")
-            
-            # Combine legends from both axes
+
+            ax.set_title("Ventilatory Equivalents & PetCO2 over Time", fontweight='bold')
             lines1, labels1 = ax.get_legend_handles_labels()
             lines2, labels2 = ax2.get_legend_handles_labels()
             ax2.legend(lines1 + lines2, labels1 + labels2, loc='best')
             ax.grid()
 
         def plot_vent_o2(ax, df):
-            ax.scatter(df['Time'], df['VE/VO2'], label='VE/VO2', marker='o', color='tab:blue')
-            ax.scatter(df['Time'], df['VE/VCO2'], label='VE/VCO2', marker='o', color='tab:green')
-            ax.set_xlabel("Time (minutes)")
-            ax.set_ylabel("VE/VO2 & VE/VCO2", color='tab:blue')
+            ax.scatter(df['Time'], df['VE/VO2'], label='VE/VO2', marker='o', color='tab:blue', s=10)
+            ax.scatter(df['Time'], df['VE/VCO2'], label='VE/VCO2', marker='o', color='tab:green', s=10)
+            ax.set_xlabel("Time (minutes)", fontweight='bold')
+            ax.set_ylabel("VE/VO2 & VE/VCO2", fontweight='bold', color='tab:blue')
             ax.tick_params(axis='y', labelcolor='tab:blue')
+
             ax2 = ax.twinx()
-            ax2.scatter(df['Time'], df['PetO2'], label='PetO2', marker='o', color='tab:orange')
-            # Add polynomial trendline for PetO2
+            ax2.scatter(df['Time'], df['PetO2'], label='PetO2', marker='o', color='tab:orange', s=10)
+
             z = np.polyfit(df['Time'], df['PetO2'], 3)
             p = np.poly1d(z)
             x_trend = np.linspace(df['Time'].min(), df['Time'].max(), 100)
-            ax2.plot(x_trend, p(x_trend), '--', color='tab:orange', label='PetO2 Trend')
-            ax2.set_ylabel("PetO2", color='tab:orange')
+            ax2.plot(x_trend, p(x_trend), '--', color='red', label='PetO2 Trend')
+
+            ax2.set_ylabel("PetO2", fontweight='bold', color='tab:orange')
             ax2.tick_params(axis='y', labelcolor='tab:orange')
-            ax.set_title("Ventilatory Equivalents & PetO2 over Time")
-            
-            # Combine legends from both axes
+
+            ax.set_title("Ventilatory Equivalents & PetO2 over Time", fontweight='bold')
             lines1, labels1 = ax.get_legend_handles_labels()
             lines2, labels2 = ax2.get_legend_handles_labels()
             ax2.legend(lines1 + lines2, labels1 + labels2, loc='best')
             ax.grid()
 
         def plot_rer(ax, df):
-            ax.scatter(df['Time'], df['RER'], label='RER', marker='o')
-            ax.set_xlabel("Time (minutes)")
-            ax.set_ylabel("RER")
-            ax.set_title("Respiratory Exchange Ratio over Time")
+            ax.scatter(df['Time'], df['RER'], label='RER', marker='o', s=10)
+            ax.set_xlabel("Time (minutes)", fontweight='bold')
+            ax.set_ylabel("RER", fontweight='bold')
+            ax.set_title("Respiratory Exchange Ratio over Time", fontweight='bold')
             ax.legend()
             ax.grid()
 
