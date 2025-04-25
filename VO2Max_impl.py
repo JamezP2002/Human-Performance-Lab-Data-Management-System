@@ -30,7 +30,10 @@ st.write("Upload a VO2 Max report in Excel format to get started.")
 uploaded_file = st.file_uploader("Choose a file")
 
 if uploaded_file:
-    df = pd.read_excel(uploaded_file, header=None, engine="xlrd")
+    if uploaded_file.name.endswith(".xls"):
+        df = pd.read_excel(uploaded_file, header=None, engine="xlrd")
+    else:
+        df = pd.read_excel(uploaded_file, header=None, engine="openpyxl")
 
     st.title("Original File:")
     st.dataframe(df)
