@@ -11,7 +11,11 @@ As of right now, it supports VO2 Max tests. It allows users to select a patient,
 choose a test, and either generate a new report or edit an existing one."""
 ###################################
 
-# Load environment variables
+# ===============================
+# Setup: Environment & Database
+# ===============================
+
+# Load environment variables (MongoDB URI, etc.)
 dotenv_path = os.path.abspath(os.path.join("capstone work/.env"))
 load_dotenv(dotenv_path)
 database_credentials = os.getenv("database_credentials")
@@ -21,22 +25,28 @@ client = MongoClient(database_credentials)
 db = client['performance-lab']
 users_col = db['users']
 reports_col = db['reports']
+vo2_col = db['vo2max']  # Collection for VO2 Max tests (expandable for other test types)
 
-# future tests will be added here
-vo2_col = db['vo2max']
+# ===============================
+# Session State Initialization
+# ===============================
 
-# Initialize session state
+# These keys help maintain state across page interactions
 for key in ['test_section', 'report_builder', 'reviewing', 'selected_test', 'selected_patient', 'plot_comments', 'plot_includes']:
     if key not in st.session_state:
         st.session_state[key] = False if key in ['test_section', 'report_builder', 'reviewing'] else {}
 
-# Patient Select Section
+# ===============================
+# Patient Selection Page
+# ===============================
 if not st.session_state['report_builder'] and not st.session_state['reviewing']:
     st.title("🏃‍♂️ Human Performance Lab Report Builder")
+
     with st.expander("🔍 Patient Select", expanded=True):
         name_query = st.text_input("Search for a patient by name")
 
         if name_query:
+            # Search MongoDB for patients matching the query
             query = {"Name": {"$regex": name_query, "$options": "i"}}
             patients = list(users_col.find(query))
 
@@ -45,6 +55,10 @@ if not st.session_state['report_builder'] and not st.session_state['reviewing']:
 
                 if selected_patient:
                     st.session_state.selected_patient = selected_patient
+
+                    # ===============================
+                    # Display Selected Patient Info
+                    # ===============================
                     st.write("**Patient Info:**")
                     col1, col2 = st.columns(2)
                     with col1:
@@ -55,61 +69,66 @@ if not st.session_state['report_builder'] and not st.session_state['reviewing']:
                         st.markdown(f"**Weight:** {selected_patient.get('Weight', 'N/A')} lb")
                         st.markdown(f"**Doctor:** {selected_patient.get('Doctor', 'N/A')}")
 
-                    # Find all tests (VO2 Max ATM)
+                    # ===============================
+                    # Step 2: Test Selection
+                    # ===============================
                     tests = list(vo2_col.find({"user_id": selected_patient["_id"]}))
 
-                    # Can be used for expanded tests in the future
                     def format_test_entry(t):
-                        test_type = t.get('test_type', 'vo2max').upper()  # default to VO2MAX for now
+                        test_type = t.get('test_type', 'vo2max').upper()
                         date = t.get('VO2 Max Report Info', {}).get('Report Info', {}).get('Date', 'Unknown Date')
                         return f"{test_type} - {date}"
 
                     if tests:
                         selected_test = st.selectbox("Select Test", tests, format_func=format_test_entry)
 
-                # Check if there's already a saved report
-                report_exists = reports_col.find_one({
-                    "user_id": selected_patient["_id"],
-                    "test_id": selected_test["_id"]
-                })
+                        # Check if a report already exists for this test
+                        report_exists = reports_col.find_one({
+                            "user_id": selected_patient["_id"],
+                            "test_id": selected_test["_id"]
+                        })
 
-                col1, col2 = st.columns(2)
+                        # ===============================
+                        # Step 3: Action Buttons
+                        # ===============================
+                        col1, col2 = st.columns(2)
 
-                with col1:
-                    if report_exists:
-                        if st.button("✏️ Edit Existing Report"):
-                            st.session_state.selected_test = selected_test
-                            st.session_state.report_builder = True
-                            st.session_state.test_section = False
-                            st.session_state.reviewing = False
-                            st.session_state.report_loaded = False  # So it reloads from MongoDB
-                            st.rerun()
-                    else:
-                        if st.button("📄 Generate Report"):
-                            st.session_state.selected_test = selected_test
-                            st.session_state.report_builder = True
-                            st.session_state.test_section = False
-                            st.session_state.reviewing = False
-                            st.session_state.report_loaded = False
-                            st.rerun()
+                        # Left column: Edit existing or generate new
+                        with col1:
+                            if report_exists:
+                                if st.button("✏️ Edit Existing Report"):
+                                    st.session_state.selected_test = selected_test
+                                    st.session_state.report_builder = True
+                                    st.session_state.test_section = False
+                                    st.session_state.reviewing = False
+                                    st.session_state.report_loaded = False
+                                    st.rerun()
+                            else:
+                                if st.button("📄 Generate Report"):
+                                    st.session_state.selected_test = selected_test
+                                    st.session_state.report_builder = True
+                                    st.session_state.test_section = False
+                                    st.session_state.reviewing = False
+                                    st.session_state.report_loaded = False
+                                    st.rerun()
 
-                with col2:
-                    if report_exists:
-                        if st.button("📄 Start New Report (Overwrite)"):
-                            # You could also add a confirm checkbox for safety
-                            reports_col.delete_one({
-                                "user_id": selected_patient["_id"],
-                                "test_id": selected_test["_id"]
-                            })
-                            st.session_state.selected_test = selected_test
-                            st.session_state.report_builder = True
-                            st.session_state.test_section = False
-                            st.session_state.reviewing = False
-                            st.session_state.report_loaded = False
-                            st.success("🗑️ Previous report deleted. Starting fresh.")
-                            st.rerun()
-                    else:
-                        st.info("No report found for this patient for this test.")
+                        # Right column: Overwrite existing report
+                        with col2:
+                            if report_exists:
+                                if st.button("📄 Start New Report (Overwrite)"):
+                                    reports_col.delete_one({
+                                        "user_id": selected_patient["_id"],
+                                        "test_id": selected_test["_id"]
+                                    })
+                                    st.session_state.selected_test = selected_test
+                                    st.session_state.report_builder = True
+                                    st.session_state.test_section = False
+                                    st.session_state.reviewing = False
+                                    st.session_state.report_loaded = False
+                                    st.success("🗑️ Previous report deleted. Starting fresh.")
+                                    st.rerun()
+                            else:
+                                st.info("No report found for this patient for this test.")
             else:
                 st.warning("No matching patient found.")
 
@@ -189,14 +208,18 @@ if st.session_state['report_builder']:
             st.rerun()
 
 
-# Step 3: Review Report Page
+# ===============================
+# Review Report Section
+# ===============================
 if st.session_state['reviewing']:
     st.subheader("📊 Review Report")
     st.write(f"Reviewing report for {st.session_state.selected_patient['Name']}")
 
+    # Initialize the appropriate test class for review (VO2Max only for now)
     test = VO2MaxTest()
     test.review_report(test_data=st.session_state.selected_test)
 
+    # Button to go back to selection screen
     if st.button("Back to Patient Select"):
         st.session_state.reviewing = False
         st.session_state.selected_test = None
