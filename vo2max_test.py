@@ -291,7 +291,7 @@ class VO2MaxTest:
         if 'include_plot_flags' not in st.session_state:
             st.session_state.include_plot_flags = {title: True for title, _ in plot_functions}
 
-        st.subheader("📊 Plots & Doctor Comments")
+        st.subheader("📊 Plots & Comments")
 
         for i, (title, func) in enumerate(plot_functions):
             st.markdown(f"---")
@@ -313,7 +313,7 @@ class VO2MaxTest:
                     "<div style='max-width: 400px;'>", unsafe_allow_html=True
                 )
                 comment = st.text_area(
-                    "🗨️ Lab Tech's Comments:",
+                    "🗨️ Comments:",
                     key=comment_key,
                     height=100,
                     value=comment_dict.get(title, "")
@@ -364,7 +364,6 @@ class VO2MaxTest:
             height=150
         )
 
-        # Save all + PDF
         if st.button("💾 Save All Comments and Selections"):
             user_id = st.session_state.selected_patient["_id"]
             test_id = st.session_state.selected_test["_id"]
@@ -385,6 +384,10 @@ class VO2MaxTest:
                     "include": include
                 })
 
+            # Extract the original test date from the report info
+            report_info = st.session_state.selected_test.get("VO2 Max Report Info", {}).get("Report Info", {})
+            test_date = report_info.get("Date", {})  # {"Year": 2024, "Month": "April", "Day": 22}
+
             reports_col.update_one(
                 {"user_id": user_id, "test_id": test_id},
                 {
@@ -393,7 +396,8 @@ class VO2MaxTest:
                         "test_id": test_id,
                         "summary": summary_text,
                         "plots": plots_data,
-                        "last_updated": datetime.utcnow()
+                        "last_updated": datetime.utcnow(),  # when the report was last modified
+                        "test_date": test_date               # when the test originally occurred
                     }
                 },
                 upsert=True
@@ -415,7 +419,27 @@ class VO2MaxTest:
         initial_report_text = st.session_state.get("initial_report_text", "")
 
         name = athlete_data.get("Name", "Unknown")
-        pdf_path = f"test_report_{name}.pdf"
+        # Extract test date from VO2 Max Report Info
+        date_dict = st.session_state.selected_test.get("VO2 Max Report Info", {}).get("Report Info", {}).get("Date", {})
+        if isinstance(date_dict, dict):
+            year = str(date_dict.get("Year", ""))
+            month = str(date_dict.get("Month", "")).zfill(2)
+            day = str(date_dict.get("Day", "")).zfill(2)
+
+            # Handle month names if necessary
+            month_map = {
+                "January": "01", "February": "02", "March": "03", "April": "04",
+                "May": "05", "June": "06", "July": "07", "August": "08",
+                "September": "09", "October": "10", "November": "11", "December": "12"
+            }
+            month = month_map.get(month, month)
+
+            test_date_str = f"{year}-{month}-{day}"
+        else:
+            test_date_str = "unknown-date"
+
+        # Construct filename with name and date
+        pdf_path = f"test_report_{name.replace(',', '').replace(' ', '_')}_{test_date_str}.pdf"
         pdf_buffers = []
 
         # Generate plot images

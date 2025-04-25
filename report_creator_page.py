@@ -76,8 +76,23 @@ if not st.session_state['report_builder'] and not st.session_state['reviewing']:
 
                     def format_test_entry(t):
                         test_type = t.get('test_type', 'vo2max').upper()
-                        date = t.get('VO2 Max Report Info', {}).get('Report Info', {}).get('Date', 'Unknown Date')
-                        return f"{test_type} - {date}"
+                        date_obj = t.get('VO2 Max Report Info', {}).get('Report Info', {}).get('Date', {})
+                        if isinstance(date_obj, dict):
+                            year = str(date_obj.get("Year", ""))
+                            month = str(date_obj.get("Month", "")).zfill(2)  # Zero-pad if numeric
+                            day = str(date_obj.get("Day", "")).zfill(2)
+                            # Optional: convert month names to numbers
+                            month_map = {
+                                "January": "01", "February": "02", "March": "03", "April": "04",
+                                "May": "05", "June": "06", "July": "07", "August": "08",
+                                "September": "09", "October": "10", "November": "11", "December": "12"
+                            }
+                            month = month_map.get(month, month)  # Convert if needed
+                            formatted_date = f"{month}/{day}/{year}"
+                        else:
+                            formatted_date = "Unknown Date"
+
+                        return f"{test_type} - {formatted_date}"
 
                     if tests:
                         selected_test = st.selectbox("Select Test", tests, format_func=format_test_entry)
@@ -164,10 +179,10 @@ if st.session_state['report_builder']:
         with col1:
             st.markdown(f"**Name:** {patient_info.get('Name', 'N/A')}")
             st.markdown(f"**Age:** {patient_info.get('Age', 'N/A')} years")
-            st.markdown(f"**Height:** {patient_info.get('Height', 'N/A'):.1f} in")
+            st.markdown(f"**Sex:** {patient_info.get('Sex', 'N/A')}")
         with col2:
             st.markdown(f"**Weight:** {patient_info.get('Weight', 'N/A'):.1f} lb")
-            st.markdown(f"**Sex:** {patient_info.get('Sex', 'N/A')}")
+            st.markdown(f"**Height:** {patient_info.get('Height', 'N/A'):.1f} in")
 
         # ===============================
         # Test Protocol Section

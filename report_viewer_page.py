@@ -52,7 +52,6 @@ if name_query:
             with col1:
                 st.markdown(f"**Age:** {selected_patient.get('Age')} years")
                 st.markdown(f"**Sex:** {selected_patient.get('Sex')}")
-                st.markdown(f"**Doctor:** {selected_patient.get('Doctor', 'N/A')}")
             with col2:
                 st.markdown(f"**Height:** {selected_patient.get('Height', 'N/A')} in")
                 st.markdown(f"**Weight:** {selected_patient.get('Weight', 'N/A')} lb")
@@ -62,20 +61,70 @@ if name_query:
             # ===============================
             test_reports = list(reports_col.find({"user_id": selected_patient["_id"]}))
 
+            def format_report_entry(r):
+                # Get test type (default to VO2MAX)
+                test_type = r.get("test_type", "vo2max").upper()
+
+                # Format test date
+                date = r.get("test_date", {})
+                if isinstance(date, dict):
+                    year = str(date.get("Year", ""))
+                    month = str(date.get("Month", "")).zfill(2)
+                    day = str(date.get("Day", "")).zfill(2)
+
+                    # Convert month names to numbers if needed
+                    month_map = {
+                        "January": "01", "February": "02", "March": "03", "April": "04",
+                        "May": "05", "June": "06", "July": "07", "August": "08",
+                        "September": "09", "October": "10", "November": "11", "December": "12"
+                    }
+                    month = month_map.get(month, month)
+                    date_str = f"{month}/{day}/{year}"
+                else:
+                    date_str = "Unknown Date"
+
+                return f"{test_type} – {date_str}"
+
             if test_reports:
                 selected_report = st.selectbox(
                     "Select Report to View",
                     test_reports,
-                    format_func=lambda r: f"{r.get('summary', 'Unnamed Report')} – {r.get('last_updated', '')}"
+                    format_func=format_report_entry
                 )
-
+                
                 if selected_report:
                     st.markdown("---")
                     st.subheader("📋 Report Summary")
                     st.write(selected_report.get("summary", "No summary available."))
 
                     st.subheader("📥 Download Report PDF")
-                    pdf_filename = f"test_report_{selected_patient['Name']}.pdf"
+
+                    # Extract date from report document
+                    date_obj = selected_report.get("test_date", {})
+                    if isinstance(date_obj, dict):
+                        year = str(date_obj.get("Year", ""))
+                        month = str(date_obj.get("Month", "")).zfill(2)
+                        day = str(date_obj.get("Day", "")).zfill(2)
+
+                        # Convert month name to number if needed
+                        month_map = {
+                            "January": "01", "February": "02", "March": "03", "April": "04",
+                            "May": "05", "June": "06", "July": "07", "August": "08",
+                            "September": "09", "October": "10", "November": "11", "December": "12"
+                        }
+                        month = month_map.get(month, month)
+                        test_date_str = f"{year}-{month}-{day}"
+                    else:
+                        test_date_str = "unknown-date"
+
+                    # Get test type (default to vo2max if missing)
+                    test_type = selected_report.get("test_type", "vo2max").lower()
+
+                    # Clean name for filename use
+                    clean_name = selected_patient['Name'].replace(',', '').replace(' ', '_')
+
+                    # Construct the exact PDF file name stored in S3
+                    pdf_filename = f"test_report_{clean_name}_{test_date_str}.pdf"
                     s3_key = f"reports/{pdf_filename}"
 
                     try:
