@@ -7,7 +7,7 @@ from vo2max_test import VO2MaxTest
 ###################################
 """Human Performance Lab Report Builder
 This is the streamlit app for building and reviewing reports based on tests.
-As of right now, it supports VO2 Max tests. It allows users to select a patient,
+As of right now, it supports VO2 Max tests. It allows users to select a client,
 choose a test, and either generate a new report or edit an existing one."""
 ###################################
 
@@ -32,47 +32,47 @@ vo2_col = db['vo2max']  # Collection for VO2 Max tests (expandable for other tes
 # ===============================
 
 # These keys help maintain state across page interactions
-for key in ['test_section', 'report_builder', 'reviewing', 'selected_test', 'selected_patient', 'plot_comments', 'plot_includes']:
+for key in ['test_section', 'report_builder', 'reviewing', 'selected_test', 'selected_client', 'plot_comments', 'plot_includes']:
     if key not in st.session_state:
         st.session_state[key] = False if key in ['test_section', 'report_builder', 'reviewing'] else {}
 
 # ===============================
-# Patient Selection Page
+# client Selection Page
 # ===============================
 if not st.session_state['report_builder'] and not st.session_state['reviewing']:
     st.title("🏃‍♂️ Human Performance Lab Report Builder")
 
-    with st.expander("🔍 Patient Select", expanded=True):
-        name_query = st.text_input("Search for a patient by name")
+    with st.expander("🔍 Client Select", expanded=True):
+        name_query = st.text_input("Search for a client by name")
 
         if name_query:
-            # Search MongoDB for patients matching the query
+            # Search MongoDB for clients matching the query
             query = {"Name": {"$regex": name_query, "$options": "i"}}
-            patients = list(users_col.find(query))
+            clients = list(users_col.find(query))
 
-            if patients:
-                selected_patient = st.selectbox("Select Patient", patients, format_func=lambda x: x['Name'])
+            if clients:
+                selected_client = st.selectbox("Select client", clients, format_func=lambda x: x['Name'])
 
-                if selected_patient:
-                    st.session_state.selected_patient = selected_patient
+                if selected_client:
+                    st.session_state.selected_client = selected_client
 
                     # ===============================
-                    # Display Selected Patient Info
+                    # Display Selected client Info
                     # ===============================
-                    st.write("**Patient Info:**")
+                    st.write("**client Info:**")
                     col1, col2 = st.columns(2)
                     with col1:
-                        st.markdown(f"**Age:** {selected_patient.get('Age')} years")
-                        st.markdown(f"**Sex:** {selected_patient.get('Sex')}")
-                        st.markdown(f"**Doctor:** {selected_patient.get('Doctor', 'N/A')}")
+                        st.markdown(f"**Age:** {selected_client.get('Age')} years")
+                        st.markdown(f"**Sex:** {selected_client.get('Sex')}")
+                        st.markdown(f"**Doctor:** {selected_client.get('Doctor', 'N/A')}")
                     with col2:
-                        st.markdown(f"**Height:** {selected_patient.get('Height', 'N/A')} in")
-                        st.markdown(f"**Weight:** {selected_patient.get('Weight', 'N/A')} lb")
+                        st.markdown(f"**Height:** {selected_client.get('Height', 'N/A')} in")
+                        st.markdown(f"**Weight:** {selected_client.get('Weight', 'N/A')} lb")
 
                     # ===============================
                     # Step 2: Test Selection
                     # ===============================
-                    tests = list(vo2_col.find({"user_id": selected_patient["_id"]}))
+                    tests = list(vo2_col.find({"user_id": selected_client["_id"]}))
 
                     def format_test_entry(t):
                         test_type = t.get('test_type', 'vo2max').upper()
@@ -99,7 +99,7 @@ if not st.session_state['report_builder'] and not st.session_state['reviewing']:
 
                         # Check if a report already exists for this test
                         report_exists = reports_col.find_one({
-                            "user_id": selected_patient["_id"],
+                            "user_id": selected_client["_id"],
                             "test_id": selected_test["_id"]
                         })
 
@@ -132,7 +132,7 @@ if not st.session_state['report_builder'] and not st.session_state['reviewing']:
                             if report_exists:
                                 if st.button("📄 Start New Report (Overwrite)"):
                                     reports_col.delete_one({
-                                        "user_id": selected_patient["_id"],
+                                        "user_id": selected_client["_id"],
                                         "test_id": selected_test["_id"]
                                     })
                                     st.session_state.selected_test = selected_test
@@ -143,16 +143,16 @@ if not st.session_state['report_builder'] and not st.session_state['reviewing']:
                                     st.success("🗑️ Previous report deleted. Starting fresh.")
                                     st.rerun()
                             else:
-                                st.info("No report found for this patient for this test.")
+                                st.info("No report found for this client for this test.")
             else:
-                st.warning("No matching patient found.")
+                st.warning("No matching client found.")
 
 # ===============================
 # Report Builder Section for VO2 Max Tests
 # ===============================
 if st.session_state['report_builder']:
     st.subheader("📝 Report Builder")
-    st.write("Building report for:", st.session_state.selected_patient['Name'])
+    st.write("Building report for:", st.session_state.selected_client['Name'])
 
     # Retrieve the selected test and initialize the appropriate test class
     test_data = st.session_state.selected_test
@@ -160,7 +160,7 @@ if st.session_state['report_builder']:
     selection = test.parse_test(test_data)
 
     if selection:
-        patient_info, test_protocol, results, df = selection  # Unpack parsed test data
+        client_info, test_protocol, results, df = selection  # Unpack parsed test data
 
         # Load saved report (from MongoDB) only once per session unless rerun
         if 'report_loaded' not in st.session_state:
@@ -172,17 +172,17 @@ if st.session_state['report_builder']:
             st.session_state.report_loaded = True
 
         # ===============================
-        # Patient Information Display
+        # client Information Display
         # ===============================
-        st.subheader("Patient Info")
+        st.subheader("client Info")
         col1, col2 = st.columns(2)
         with col1:
-            st.markdown(f"**Name:** {patient_info.get('Name', 'N/A')}")
-            st.markdown(f"**Age:** {patient_info.get('Age', 'N/A')} years")
-            st.markdown(f"**Sex:** {patient_info.get('Sex', 'N/A')}")
+            st.markdown(f"**Name:** {client_info.get('Name', 'N/A')}")
+            st.markdown(f"**Age:** {client_info.get('Age', 'N/A')} years")
+            st.markdown(f"**Sex:** {client_info.get('Sex', 'N/A')}")
         with col2:
-            st.markdown(f"**Weight:** {patient_info.get('Weight', 'N/A'):.1f} lb")
-            st.markdown(f"**Height:** {patient_info.get('Height', 'N/A'):.1f} in")
+            st.markdown(f"**Weight:** {client_info.get('Weight', 'N/A'):.1f} lb")
+            st.markdown(f"**Height:** {client_info.get('Height', 'N/A'):.1f} in")
 
         # ===============================
         # Test Protocol Section
@@ -216,9 +216,9 @@ if st.session_state['report_builder']:
         # ===============================
         # Navigation Button
         # ===============================
-        if st.button("Back to Patient Select"):
-            # Reset builder state and return to the patient/test selection page
-            for key in ['report_builder', 'report_loaded', 'selected_test', 'selected_patient']:
+        if st.button("Back to client Select"):
+            # Reset builder state and return to the client/test selection page
+            for key in ['report_builder', 'report_loaded', 'selected_test', 'selected_client']:
                 st.session_state[key] = None if key.startswith('selected') else False
             st.rerun()
 
@@ -228,15 +228,15 @@ if st.session_state['report_builder']:
 # ===============================
 if st.session_state['reviewing']:
     st.subheader("📊 Review Report")
-    st.write(f"Reviewing report for {st.session_state.selected_patient['Name']}")
+    st.write(f"Reviewing report for {st.session_state.selected_client['Name']}")
 
     # Initialize the appropriate test class for review (VO2Max only for now)
     test = VO2MaxTest()
     test.review_report(test_data=st.session_state.selected_test)
 
     # Button to go back to selection screen
-    if st.button("Back to Patient Select"):
+    if st.button("Back to client Select"):
         st.session_state.reviewing = False
         st.session_state.selected_test = None
-        st.session_state.selected_patient = None
+        st.session_state.selected_client = None
         st.rerun()

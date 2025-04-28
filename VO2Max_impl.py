@@ -30,10 +30,17 @@ st.write("Upload a VO2 Max report in Excel format to get started.")
 uploaded_file = st.file_uploader("Choose a file")
 
 if uploaded_file:
-    if uploaded_file.name.endswith(".xls"):
-        df = pd.read_excel(uploaded_file, header=None, engine="xlrd")
-    else:
-        df = pd.read_excel(uploaded_file, header=None, engine="openpyxl")
+    file_type = uploaded_file.name.split(".")[-1].lower()
+
+    try:
+        if file_type == "xls":
+            df = pd.read_excel(uploaded_file, header=None, engine="xlrd")
+        elif file_type == "xlsx":
+            df = pd.read_excel(uploaded_file, header=None, engine="openpyxl")
+        else:
+            st.error("Unsupported file type. Please upload a .xls or .xlsx file.")
+    except Exception as e:
+        st.error(f"Failed to read Excel file: {e}")
 
     st.title("Original File:")
     st.dataframe(df)
@@ -177,7 +184,7 @@ if uploaded_file:
             "user_id": user_id,
             "VO2 Max Report Info": {
                 "Report Info": report_info_dict,
-                "Patient Info": client_info_dict,
+                "Client Info": client_info_dict,
                 "Test Protocol": test_protocol_dict,
                 "Tabular Data": tabular_data_dict
             }

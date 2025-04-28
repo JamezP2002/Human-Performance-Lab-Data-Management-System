@@ -6,7 +6,7 @@ import boto3
 
 ###################################
 """Report Viewer 
-This page allows lab techs to search patients and view/download test reports
+This page allows lab techs to search clients and view/download test reports
 without editing access. Reports are fetched from AWS S3 and metadata from MongoDB."""
 ###################################
 
@@ -43,24 +43,24 @@ with st.expander("🔍 Search Clients", expanded=True):
 
     if name_query:
         query = {"Name": {"$regex": name_query, "$options": "i"}}
-        patients = list(users_col.find(query))
+        clients = list(users_col.find(query))
 
-        if patients:
-            selected_patient = st.selectbox("Select Client", patients, format_func=lambda x: x['Name'])
+        if clients:
+            selected_client = st.selectbox("Select Client", clients, format_func=lambda x: x['Name'])
 
-            if selected_patient:
+            if selected_client:
                 st.markdown("### 🧑‍⚕️ Client Information")
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.markdown(f"**Age:** {selected_patient.get('Age')} years")
-                    st.markdown(f"**Sex:** {selected_patient.get('Sex')}")
-                    st.markdown(f"**Doctor:** {selected_patient.get('Doctor', 'N/A')}")
+                    st.markdown(f"**Age:** {selected_client.get('Age')} years")
+                    st.markdown(f"**Sex:** {selected_client.get('Sex')}")
+                    st.markdown(f"**Doctor:** {selected_client.get('Doctor', 'N/A')}")
                 with col2:
-                    st.markdown(f"**Height:** {selected_patient.get('Height', 'N/A')} in")
-                    st.markdown(f"**Weight:** {selected_patient.get('Weight', 'N/A')} lb")
+                    st.markdown(f"**Height:** {selected_client.get('Height', 'N/A')} in")
+                    st.markdown(f"**Weight:** {selected_client.get('Weight', 'N/A')} lb")
 
                 # --- Test Reports Section ---
-                test_reports = list(reports_col.find({"user_id": selected_patient["_id"]}))
+                test_reports = list(reports_col.find({"user_id": selected_client["_id"]}))
 
                 def format_report_entry(r):
                     test_type = r.get("test_type", "vo2max").upper()
@@ -112,7 +112,7 @@ with st.expander("🔍 Search Clients", expanded=True):
                             test_date_str = "unknown-date"
 
                         test_type = selected_report.get("test_type", "vo2max").lower()
-                        clean_name = selected_patient['Name'].replace(',', '').replace(' ', '_')
+                        clean_name = selected_client['Name'].replace(',', '').replace(' ', '_')
                         pdf_filename = f"test_report_{clean_name}_{test_date_str}.pdf"
                         s3_key = f"reports/{pdf_filename}"
 
@@ -128,6 +128,6 @@ with st.expander("🔍 Search Clients", expanded=True):
                             st.exception(e)
 
                 else:
-                    st.info("No reports found for this patient.")
+                    st.info("No reports found for this client.")
         else:
             st.warning("No matching clients found.")

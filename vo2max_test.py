@@ -52,7 +52,7 @@ class VO2MaxTest:
 
             # Break apart key data sections
             report_info = document["VO2 Max Report Info"]
-            patient_info = report_info["Patient Info"]
+            client_info = report_info["Client Info"]
             test_protocol = report_info["Test Protocol"]
             results = test_protocol["Results"]
             tabular_data = report_info["Tabular Data"]
@@ -67,7 +67,7 @@ class VO2MaxTest:
             # Store DataFrame in session
             st.session_state.df = df
 
-            return patient_info, test_protocol, results, df
+            return client_info, test_protocol, results, df
 
         except Exception as e:
             st.error(f"Failed to parse test document: {e}")
@@ -255,31 +255,31 @@ class VO2MaxTest:
         return plot_functions       
 
     def generate_report_data(self):
-        """Prepare athlete and test information to be displayed in the final PDF report."""
+        """Prepare client and test information to be displayed in the final PDF report."""
 
         # Fetch selected document from session
         document = st.session_state.get("selected_document")
 
         # Error handling if no document loaded
         if document is None:
-            st.error("No patient data found.")
+            st.error("No client data found.")
             return None, None
 
         # Extract main sections
-        patient_info = document["VO2 Max Report Info"]["Patient Info"]
+        client_info = document["VO2 Max Report Info"]["Client Info"]
         test_protocol = document["VO2 Max Report Info"]["Test Protocol"]
         results = test_protocol["Results"]
 
         # ==============================
-        # Format patient information
+        # Format client information
         # ==============================
 
-        patient_info_for_pdf = {
-            "Name": patient_info.get("Name"),
-            "Sex": patient_info.get("Sex"),
-            "Age": patient_info.get("Age"),
-            "Height": patient_info.get("Height"),
-            "Weight": patient_info.get("Weight")
+        client_info_for_pdf = {
+            "Name": client_info.get("Name"),
+            "Sex": client_info.get("Sex"),
+            "Age": client_info.get("Age"),
+            "Height": client_info.get("Height"),
+            "Weight": client_info.get("Weight")
         }
 
         # ==============================
@@ -305,20 +305,20 @@ class VO2MaxTest:
         # Store into Streamlit session for later use
         # (used during PDF generation)
         # ==============================
-        st.session_state.athlete_data = patient_info_for_pdf
+        st.session_state.client_data = client_info_for_pdf
         st.session_state.vo2_data = test_results_for_pdf
 
         # Return structured data
-        return patient_info_for_pdf, test_results_for_pdf
+        return client_info_for_pdf, test_results_for_pdf
 
     def load_saved_report(self):
         """Load an existing saved report from MongoDB into Streamlit session state."""
 
         report_col = self.db["reports"]
-        user_id = st.session_state.selected_patient["_id"]
+        user_id = st.session_state.selected_client["_id"]
         test_id = st.session_state.selected_test["_id"]
 
-        # Search MongoDB for an existing report for this patient and test
+        # Search MongoDB for an existing report for this client and test
         report = report_col.find_one({"user_id": user_id, "test_id": test_id})
 
         if report:
@@ -415,7 +415,7 @@ class VO2MaxTest:
                 plot_flag_dict[title] = include
 
                 # Save the comment/inclusion immediately to MongoDB
-                user_id = st.session_state.selected_patient["_id"]
+                user_id = st.session_state.selected_client["_id"]
                 test_id = st.session_state.selected_test["_id"]
 
                 self.db["reports"].update_one(
@@ -460,7 +460,7 @@ class VO2MaxTest:
         # ==============================
 
         if st.button("💾 Save All Comments and Selections"):
-            user_id = st.session_state.selected_patient["_id"]
+            user_id = st.session_state.selected_client["_id"]
             test_id = st.session_state.selected_test["_id"]
             summary_text = st.session_state.initial_report_text
 
@@ -511,7 +511,7 @@ class VO2MaxTest:
         # Setup
         df = st.session_state.get("df")
         plot_functions = self.get_plot_functions()
-        athlete_data = st.session_state.get("athlete_data", {})
+        client_data = st.session_state.get("client_data", {})
         vo2_data = st.session_state.get("vo2_data", {})
         plot_comments = st.session_state.get("plot_comments", {})
         initial_report_text = st.session_state.get("initial_report_text", "")
@@ -520,7 +520,7 @@ class VO2MaxTest:
         # Build PDF filename (Name + Test Date)
         # ==============================
 
-        name = athlete_data.get("Name", "Unknown")
+        name = client_data.get("Name", "Unknown")
 
         # Extract test date for filename
         date_dict = st.session_state.selected_test.get("VO2 Max Report Info", {}).get("Report Info", {}).get("Date", {})
@@ -632,16 +632,16 @@ class VO2MaxTest:
         ])
 
         # Athlete Info Table
-        athlete_table_data = [["Athlete Info", ""]] + [[k, str(v)] for k, v in athlete_data.items()]
-        athlete_table = Table(athlete_table_data, colWidths=[100, 120])
-        athlete_table.setStyle([
+        client_table_data = [["Client Info", ""]] + [[k, str(v)] for k, v in client_data.items()]
+        client_table = Table(client_table_data, colWidths=[100, 120])
+        client_table.setStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.lightblue),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
             ("ALIGN", (0, 0), (-1, 0), "CENTER"),
             ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ])
-        story.extend([athlete_table, FrameBreak()])
+        story.extend([client_table, FrameBreak()])
 
         # Test Results Table
         vo2_table_data = [["Test Results", ""]] + [[k, str(v)] for k, v in vo2_data.items()]
