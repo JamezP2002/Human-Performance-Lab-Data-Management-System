@@ -33,112 +33,101 @@ s3 = boto3.client("s3",
 )
 
 # ===============================
-# Search clients
+# Report Viewer (Read-Only Access)
 # ===============================
 st.title("🧾 Lab Report Viewer (Read-Only)")
 
-name_query = st.text_input("Search for a client by name")
+# --- Search Section ---
+with st.expander("🔍 Search Clients", expanded=True):
+    name_query = st.text_input("Enter client name to search")
 
-if name_query:
-    query = {"Name": {"$regex": name_query, "$options": "i"}}
-    patients = list(users_col.find(query))
+    if name_query:
+        query = {"Name": {"$regex": name_query, "$options": "i"}}
+        patients = list(users_col.find(query))
 
-    if patients:
-        selected_patient = st.selectbox("Select Client", patients, format_func=lambda x: x['Name'])
+        if patients:
+            selected_patient = st.selectbox("Select Client", patients, format_func=lambda x: x['Name'])
 
-        if selected_patient:
-            st.write("**Client Info:**")
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown(f"**Age:** {selected_patient.get('Age')} years")
-                st.markdown(f"**Sex:** {selected_patient.get('Sex')}")
-            with col2:
-                st.markdown(f"**Height:** {selected_patient.get('Height', 'N/A')} in")
-                st.markdown(f"**Weight:** {selected_patient.get('Weight', 'N/A')} lb")
+            if selected_patient:
+                st.markdown("### 🧑‍⚕️ Client Information")
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.markdown(f"**Age:** {selected_patient.get('Age')} years")
+                    st.markdown(f"**Sex:** {selected_patient.get('Sex')}")
+                    st.markdown(f"**Doctor:** {selected_patient.get('Doctor', 'N/A')}")
+                with col2:
+                    st.markdown(f"**Height:** {selected_patient.get('Height', 'N/A')} in")
+                    st.markdown(f"**Weight:** {selected_patient.get('Weight', 'N/A')} lb")
 
-            # ===============================
-            # List Test Reports
-            # ===============================
-            test_reports = list(reports_col.find({"user_id": selected_patient["_id"]}))
+                # --- Test Reports Section ---
+                test_reports = list(reports_col.find({"user_id": selected_patient["_id"]}))
 
-            def format_report_entry(r):
-                # Get test type (default to VO2MAX)
-                test_type = r.get("test_type", "vo2max").upper()
-
-                # Format test date
-                date = r.get("test_date", {})
-                if isinstance(date, dict):
-                    year = str(date.get("Year", ""))
-                    month = str(date.get("Month", "")).zfill(2)
-                    day = str(date.get("Day", "")).zfill(2)
-
-                    # Convert month names to numbers if needed
-                    month_map = {
-                        "January": "01", "February": "02", "March": "03", "April": "04",
-                        "May": "05", "June": "06", "July": "07", "August": "08",
-                        "September": "09", "October": "10", "November": "11", "December": "12"
-                    }
-                    month = month_map.get(month, month)
-                    date_str = f"{month}/{day}/{year}"
-                else:
-                    date_str = "Unknown Date"
-
-                return f"{test_type} – {date_str}"
-
-            if test_reports:
-                selected_report = st.selectbox(
-                    "Select Report to View",
-                    test_reports,
-                    format_func=format_report_entry
-                )
-                
-                if selected_report:
-                    st.markdown("---")
-                    st.subheader("📋 Report Summary")
-                    st.write(selected_report.get("summary", "No summary available."))
-
-                    st.subheader("📥 Download Report PDF")
-
-                    # Extract date from report document
-                    date_obj = selected_report.get("test_date", {})
-                    if isinstance(date_obj, dict):
-                        year = str(date_obj.get("Year", ""))
-                        month = str(date_obj.get("Month", "")).zfill(2)
-                        day = str(date_obj.get("Day", "")).zfill(2)
-
-                        # Convert month name to number if needed
+                def format_report_entry(r):
+                    test_type = r.get("test_type", "vo2max").upper()
+                    date = r.get("test_date", {})
+                    if isinstance(date, dict):
+                        year = str(date.get("Year", ""))
+                        month = str(date.get("Month", "")).zfill(2)
+                        day = str(date.get("Day", "")).zfill(2)
                         month_map = {
                             "January": "01", "February": "02", "March": "03", "April": "04",
                             "May": "05", "June": "06", "July": "07", "August": "08",
                             "September": "09", "October": "10", "November": "11", "December": "12"
                         }
                         month = month_map.get(month, month)
-                        test_date_str = f"{year}-{month}-{day}"
+                        date_str = f"{month}/{day}/{year}"
                     else:
-                        test_date_str = "unknown-date"
+                        date_str = "Unknown Date"
 
-                    # Get test type (default to vo2max if missing)
-                    test_type = selected_report.get("test_type", "vo2max").lower()
+                    return f"{test_type} – {date_str}"
 
-                    # Clean name for filename use
-                    clean_name = selected_patient['Name'].replace(',', '').replace(' ', '_')
+                if test_reports:
+                    selected_report = st.selectbox(
+                        "📄 Select Report",
+                        test_reports,
+                        format_func=format_report_entry
+                    )
 
-                    # Construct the exact PDF file name stored in S3
-                    pdf_filename = f"test_report_{clean_name}_{test_date_str}.pdf"
-                    s3_key = f"reports/{pdf_filename}"
+                    if selected_report:
+                        st.markdown("---")
+                        st.subheader("📋 Report Summary")
+                        st.write(selected_report.get("summary", "No summary available."))
 
-                    try:
-                        # Stream the file from S3
-                        with st.spinner("Downloading from S3..."):
-                            s3.download_file(bucket_name, s3_key, pdf_filename)
+                        st.subheader("📥 Download Report PDF")
 
-                        with open(pdf_filename, "rb") as f:
-                            st.download_button("Download PDF", f, file_name=pdf_filename)
+                        # Generate PDF file name for S3 retrieval
+                        date_obj = selected_report.get("test_date", {})
+                        if isinstance(date_obj, dict):
+                            year = str(date_obj.get("Year", ""))
+                            month = str(date_obj.get("Month", "")).zfill(2)
+                            day = str(date_obj.get("Day", "")).zfill(2)
+                            month_map = {
+                                "January": "01", "February": "02", "March": "03", "April": "04",
+                                "May": "05", "June": "06", "July": "07", "August": "08",
+                                "September": "09", "October": "10", "November": "11", "December": "12"
+                            }
+                            month = month_map.get(month, month)
+                            test_date_str = f"{year}-{month}-{day}"
+                        else:
+                            test_date_str = "unknown-date"
 
-                    except Exception as e:
-                        st.error(f"Report not found in S3: {s3_key}")
-                        st.exception(e)
-            else:
-                st.info("No reports found for this patient.")
-    else:
-        st.warning("No patients found with that name.")
+                        test_type = selected_report.get("test_type", "vo2max").lower()
+                        clean_name = selected_patient['Name'].replace(',', '').replace(' ', '_')
+                        pdf_filename = f"test_report_{clean_name}_{test_date_str}.pdf"
+                        s3_key = f"reports/{pdf_filename}"
+
+                        try:
+                            with st.spinner("Downloading from S3..."):
+                                s3.download_file(bucket_name, s3_key, pdf_filename)
+
+                            with open(pdf_filename, "rb") as f:
+                                st.download_button("📥 Download PDF", f, file_name=pdf_filename)
+
+                        except Exception as e:
+                            st.error(f"⚠️ Report not found in S3: {s3_key}")
+                            st.exception(e)
+
+                else:
+                    st.info("No reports found for this patient.")
+        else:
+            st.warning("No matching clients found.")
