@@ -113,7 +113,7 @@ class VO2MaxTest:
             ax.set_xlabel("VO2 STPD (mL/min)", fontweight='bold')
             ax.set_ylabel("VCO2 STPD (mL/min)", fontweight='bold')
             ax.set_title("V-Slope", fontweight='bold')
-            ax.legend()
+            ax.legend(fontsize=8)
             ax.grid()
 
         # --- Plot: VO2 Over Time ---
@@ -130,7 +130,7 @@ class VO2MaxTest:
             ax.set_xlabel("Time (minutes)", fontweight='bold')
             ax.set_ylabel("VO2 STPD (mL/min)", fontweight='bold')
             ax.set_title("VO2 ml over Time", fontweight='bold')
-            ax.legend()
+            ax.legend(fontsize=8)
             ax.grid()
 
         # --- Plot: Heart Rate ---
@@ -141,7 +141,7 @@ class VO2MaxTest:
             ax.set_xlabel("Time (minutes)", fontweight='bold')
             ax.set_ylabel("Heart Rate (bpm)", fontweight='bold')
             ax.set_title("Heart Rate over Time", fontweight='bold')
-            ax.legend()
+            ax.legend(fontsize=8)
             ax.grid()
 
         # --- Plot: Fat and Carbohydrate Oxidation ---
@@ -178,11 +178,10 @@ class VO2MaxTest:
             ax.set_ylabel("VE/VO2 & VE/VCO2", fontweight='bold', color='tab:blue')
             ax.tick_params(axis='y', labelcolor='tab:blue')
 
-            # PetCO2 on secondary axis
             ax2 = ax.twinx()
             ax2.scatter(df['Time'], df['PetCO2'], label='PetCO2', marker='o', color='tab:orange', s=10)
 
-            # PetCO2 trendline
+            # Trendline for PetCO2
             z = np.polyfit(df['Time'], df['PetCO2'], 3)
             p = np.poly1d(z)
             x_trend = np.linspace(df['Time'].min(), df['Time'].max(), 100)
@@ -193,10 +192,17 @@ class VO2MaxTest:
 
             ax.set_title("Ventilatory Equivalents & PetCO2 over Time", fontweight='bold')
 
+            # --- Expand y-limits a little to make space for legend ---
+            y1_min, y1_max = ax.get_ylim()
+            ax.set_ylim(y1_min, y1_max + (y1_max - y1_min) * 0.15)
+
+            y2_min, y2_max = ax2.get_ylim()
+            ax2.set_ylim(y2_min, y2_max + (y2_max - y2_min) * 0.15)
+
             # Combine legends
             lines1, labels1 = ax.get_legend_handles_labels()
             lines2, labels2 = ax2.get_legend_handles_labels()
-            ax2.legend(lines1 + lines2, labels1 + labels2, loc='best')
+            ax2.legend(lines1 + lines2, labels1 + labels2, fontsize=8)
             ax.grid()
 
         # --- Plot: Ventilatory Equivalents + O2 ---
@@ -209,11 +215,10 @@ class VO2MaxTest:
             ax.set_ylabel("VE/VO2 & VE/VCO2", fontweight='bold', color='tab:blue')
             ax.tick_params(axis='y', labelcolor='tab:blue')
 
-            # PetO2 on secondary axis
             ax2 = ax.twinx()
             ax2.scatter(df['Time'], df['PetO2'], label='PetO2', marker='o', color='tab:orange', s=10)
 
-            # PetO2 trendline
+            # Trendline for PetO2
             z = np.polyfit(df['Time'], df['PetO2'], 3)
             p = np.poly1d(z)
             x_trend = np.linspace(df['Time'].min(), df['Time'].max(), 100)
@@ -224,10 +229,17 @@ class VO2MaxTest:
 
             ax.set_title("Ventilatory Equivalents & PetO2 over Time", fontweight='bold')
 
+            # --- Expand y-limits a little to make space for legend ---
+            y1_min, y1_max = ax.get_ylim()
+            ax.set_ylim(y1_min, y1_max + (y1_max - y1_min) * 0.15)
+
+            y2_min, y2_max = ax2.get_ylim()
+            ax2.set_ylim(y2_min, y2_max + (y2_max - y2_min) * 0.15)
+
             # Combine legends
             lines1, labels1 = ax.get_legend_handles_labels()
             lines2, labels2 = ax2.get_legend_handles_labels()
-            ax2.legend(lines1 + lines2, labels1 + labels2, loc='best')
+            ax2.legend(lines1 + lines2, labels1 + labels2, fontsize=8)
             ax.grid()
 
         # --- Plot: Respiratory Exchange Ratio (RER) ---
@@ -238,7 +250,7 @@ class VO2MaxTest:
             ax.set_xlabel("Time (minutes)", fontweight='bold')
             ax.set_ylabel("RER", fontweight='bold')
             ax.set_title("Respiratory Exchange Ratio over Time", fontweight='bold')
-            ax.legend()
+            ax.legend(fontsize=8)
             ax.grid()
 
         # --- Return all plots together ---
