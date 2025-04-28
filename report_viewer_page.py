@@ -3,6 +3,7 @@ from pymongo import MongoClient
 import os
 from dotenv import load_dotenv
 import boto3
+import pandas as pd
 
 ###################################
 """Report Viewer 
@@ -64,6 +65,8 @@ with st.expander("🔍 Search Clients", expanded=True):
 
                 def format_report_entry(r):
                     test_type = r.get("test_type", "vo2max").upper()
+
+                    # Format test date
                     date = r.get("test_date", {})
                     if isinstance(date, dict):
                         year = str(date.get("Year", ""))
@@ -75,11 +78,18 @@ with st.expander("🔍 Search Clients", expanded=True):
                             "September": "09", "October": "10", "November": "11", "December": "12"
                         }
                         month = month_map.get(month, month)
-                        date_str = f"{month}/{day}/{year}"
+                        test_date_str = f"{month}/{day}/{year}"
                     else:
-                        date_str = "Unknown Date"
+                        test_date_str = "Unknown Date"
 
-                    return f"{test_type} – {date_str}"
+                    # Format last updated timestamp
+                    last_updated = r.get("last_updated")
+                    if last_updated:
+                        last_updated_str = pd.to_datetime(last_updated).strftime("%m/%d/%Y")
+                    else:
+                        last_updated_str = "Unknown Update"
+
+                    return f"{test_type} – Test Date: {test_date_str} – Updated: {last_updated_str}"
 
                 if test_reports:
                     selected_report = st.selectbox(
