@@ -141,6 +141,25 @@ if uploaded_file:
         user = users_collection.find_one({"Name": name})
         if user:
             user_id = user["_id"]
+
+            # Update any fields that may have changed (age, height, weight, doctor)
+            updated_fields = {}
+
+            if user.get("Age") != age:
+                updated_fields["Age"] = age
+            if user.get("Height") != patient_info_dict["Height"]:
+                updated_fields["Height"] = patient_info_dict["Height"]
+            if user.get("Weight") != patient_info_dict["Weight"]:
+                updated_fields["Weight"] = patient_info_dict["Weight"]
+            if user.get("Doctor") != patient_info_dict["Doctor"]:
+                updated_fields["Doctor"] = patient_info_dict["Doctor"]
+
+            if updated_fields:
+                users_collection.update_one(
+                    {"_id": user_id},
+                    {"$set": updated_fields}
+                )
+                st.info(f"✅ Patient information updated: {', '.join(updated_fields.keys())}")
         else:
             new_user = {
                 "Name": name,
