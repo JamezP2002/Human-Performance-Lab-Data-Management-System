@@ -3,6 +3,7 @@ import streamlit as st
 import os
 from dotenv import load_dotenv
 from vo2max_test import VO2MaxTest
+import pandas as pd
 
 ###################################
 """Human Performance Lab Report Builder
@@ -92,7 +93,7 @@ if not st.session_state['report_builder'] and not st.session_state['reviewing']:
                         else:
                             formatted_date = "Unknown Date"
 
-                        return f"{test_type} - {formatted_date}"
+                        return f"{test_type} – Test Date: {formatted_date}"
 
                     if tests:
                         selected_test = st.selectbox("Select Test", tests, format_func=format_test_entry)
@@ -111,7 +112,14 @@ if not st.session_state['report_builder'] and not st.session_state['reviewing']:
                         # Left column: Edit existing or generate new
                         with col1:
                             if report_exists:
-                                if st.button("✏️ Edit Existing Report"):
+                                last_updated = report_exists.get("last_updated")
+                                if last_updated:
+                                    last_updated_str = pd.to_datetime(last_updated).strftime("%m/%d/%Y")
+                                    edit_button_label = f"✏️ Edit Existing Report (Last Updated: {last_updated_str})"
+                                else:
+                                    edit_button_label = "✏️ Edit Existing Report"
+
+                                if st.button(edit_button_label):
                                     st.session_state.selected_test = selected_test
                                     st.session_state.report_builder = True
                                     st.session_state.test_section = False
