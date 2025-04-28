@@ -355,10 +355,14 @@ class VO2MaxTest:
         return False
 
     def report_builder(self):
+        """Main function for building a VO2 Max report interactively inside Streamlit."""
+
+        # Setup
         df = st.session_state.get("df")
         plot_functions = self.get_plot_functions()
         reports_col = self.db["reports"]
 
+        # Initialize session state for plots if not already present
         if 'plot_comments' not in st.session_state:
             st.session_state.plot_comments = {}
         if 'include_plot_flags' not in st.session_state:
@@ -366,25 +370,30 @@ class VO2MaxTest:
 
         st.subheader("📊 Plots & Comments")
 
+        # ==============================
+        # Plot Each Graph and Capture Comments
+        # ==============================
+
         for i, (title, func) in enumerate(plot_functions):
             st.markdown(f"---")
             st.markdown(f"### {title}")
 
+            # Plot the figure
             fig, ax = plt.subplots(figsize=(6, 3.5))
             func(ax, df)
-            fig.tight_layout() 
+            fig.tight_layout()
             st.pyplot(fig, use_container_width=False)
 
+            # Setup keys for session state
             include_key = f"include_{i}"
             comment_key = f"comment_{i}"
             plot_flag_dict = st.session_state.include_plot_flags
             comment_dict = st.session_state.plot_comments
 
+            # Text box for comment
             col1, col2 = st.columns([3, 1])
             with col1:
-                st.markdown(
-                    "<div style='max-width: 400px;'>", unsafe_allow_html=True
-                )
+                st.markdown("<div style='max-width: 400px;'>", unsafe_allow_html=True)
                 comment = st.text_area(
                     "🗨️ Comments:",
                     key=comment_key,
@@ -392,15 +401,20 @@ class VO2MaxTest:
                     value=comment_dict.get(title, "")
                 )
                 st.markdown("</div>", unsafe_allow_html=True)
+
+            # Checkbox for including/excluding this plot
             with col2:
                 include = st.checkbox("Include in Report", value=plot_flag_dict.get(title, True), key=include_key)
 
+            # ==============================
+            # Save Button for Each Section
+            # ==============================
             if st.button(f"💾 Save '{title}' Section", key=f"save_{i}"):
-                # Save to session state
+                # Update session
                 comment_dict[title] = comment
                 plot_flag_dict[title] = include
 
-                # Save to MongoDB
+                # Save the comment/inclusion immediately to MongoDB
                 user_id = st.session_state.selected_patient["_id"]
                 test_id = st.session_state.selected_test["_id"]
 
@@ -422,12 +436,16 @@ class VO2MaxTest:
                     },
                     upsert=True
                 )
-
                 st.success(f"Saved section for '{title}' ✅")
 
-        # Summary Report Box at the Bottom
+        # ==============================
+        # Summary Report Section
+        # ==============================
+
         st.markdown("---")
         st.subheader("📝 Summary Report")
+
+        # Initialize summary if missing
         if "initial_report_text" not in st.session_state:
             st.session_state.initial_report_text = ""
 
@@ -436,6 +454,10 @@ class VO2MaxTest:
             value=st.session_state.initial_report_text,
             height=150
         )
+
+        # ==============================
+        # Save All Sections Button
+        # ==============================
 
         if st.button("💾 Save All Comments and Selections"):
             user_id = st.session_state.selected_patient["_id"]
@@ -457,9 +479,9 @@ class VO2MaxTest:
                     "include": include
                 })
 
-            # Extract the original test date from the report info
+            # Also store the original test date in MongoDB
             report_info = st.session_state.selected_test.get("VO2 Max Report Info", {}).get("Report Info", {})
-            test_date = report_info.get("Date", {})  # {"Year": 2024, "Month": "April", "Day": 22}
+            test_date = report_info.get("Date", {})
 
             reports_col.update_one(
                 {"user_id": user_id, "test_id": test_id},
@@ -469,21 +491,24 @@ class VO2MaxTest:
                         "test_id": test_id,
                         "summary": summary_text,
                         "plots": plots_data,
-                        "last_updated": datetime.utcnow(),  # when the report was last modified
-                        "test_date": test_date               # when the test originally occurred
+                        "last_updated": datetime.utcnow(),  # Date of report generation
+                        "test_date": test_date               # Date of original test
                     }
                 },
                 upsert=True
             )
-
             st.success("✅ All comments and selections saved to MongoDB.")
 
+        # Generate Final PDF Button
         if st.button("📄 Generate PDF Report"):
             self.generate_report_data()
             self.generate_pdf(self.s3_client)
 
 
     def generate_pdf(self, s3_client):
+        """Generate the final PDF report from user inputs and upload it to S3."""
+
+        # Setup
         df = st.session_state.get("df")
         plot_functions = self.get_plot_functions()
         athlete_data = st.session_state.get("athlete_data", {})
@@ -491,52 +516,66 @@ class VO2MaxTest:
         plot_comments = st.session_state.get("plot_comments", {})
         initial_report_text = st.session_state.get("initial_report_text", "")
 
+        # ==============================
+        # Build PDF filename (Name + Test Date)
+        # ==============================
+
         name = athlete_data.get("Name", "Unknown")
-        # Extract test date from VO2 Max Report Info
+
+        # Extract test date for filename
         date_dict = st.session_state.selected_test.get("VO2 Max Report Info", {}).get("Report Info", {}).get("Date", {})
         if isinstance(date_dict, dict):
             year = str(date_dict.get("Year", ""))
             month = str(date_dict.get("Month", "")).zfill(2)
             day = str(date_dict.get("Day", "")).zfill(2)
 
-            # Handle month names if necessary
+            # Handle month names (convert to numbers)
             month_map = {
                 "January": "01", "February": "02", "March": "03", "April": "04",
                 "May": "05", "June": "06", "July": "07", "August": "08",
                 "September": "09", "October": "10", "November": "11", "December": "12"
             }
             month = month_map.get(month, month)
-
             test_date_str = f"{year}-{month}-{day}"
         else:
             test_date_str = "unknown-date"
 
-        # Construct filename with name and date
+        # Final filename
         pdf_path = f"test_report_{name.replace(',', '').replace(' ', '_')}_{test_date_str}.pdf"
+
         pdf_buffers = []
 
-        # Generate plot images
+        # ==============================
+        # Create Plot Images
+        # ==============================
+
         include_flags = st.session_state.get("include_plot_flags", {})
         for plot_name, func in plot_functions:
             if not include_flags.get(plot_name, True):
-                continue  # Skip this plot
+                continue  # Skip plots that user chose not to include
 
             fig, ax = plt.subplots(figsize=(5.5, 3.5))
             func(ax, df)
             ax.set_title(plot_name, fontsize=7)
             plt.tight_layout()
+
             buf = io.BytesIO()
             fig.savefig(buf, format="PNG")
             buf.seek(0)
             pdf_buffers.append((plot_name, buf, plot_comments.get(plot_name, "")))
             plt.close(fig)
 
-        # Set up document
+        # ==============================
+        # Setup PDF Document Template
+        # ==============================
+
+        from reportlab.platypus import BaseDocTemplate, Frame, PageTemplate, FrameBreak, PageBreak, NextPageTemplate
+
         doc = BaseDocTemplate(pdf_path, pagesize=LETTER)
         styles = getSampleStyleSheet()
         width, height = LETTER
 
-        # Layout
+        # Page layout settings
         doc.topMargin = 5
         doc.bottomMargin = 140
         doc.leftMargin = 72
@@ -544,12 +583,13 @@ class VO2MaxTest:
         header_height = 180
         body_height = height - doc.topMargin - doc.bottomMargin - header_height
 
-        # Calculate reduced margins for PlotPage
+        # Layout for the plot/comment pages
         plot_left_margin = 30
         plot_right_margin = 30
         usable_width = width - plot_left_margin - plot_right_margin
-        half_width = (usable_width - 12) / 2  # 6pt gutter between columns
+        half_width = (usable_width - 12) / 2  # 6pt gutter between plot frames
 
+        # Define page templates
         doc.addPageTemplates([
             PageTemplate(
                 id='ContentPage',
@@ -570,15 +610,20 @@ class VO2MaxTest:
             )
         ])
 
-        # Build story
+        # ==============================
+        # Build Story (Content of PDF)
+        # ==============================
+
         story = []
 
+        # Add Logo
         logo_path = "graphics/CHAMPlogo.png"
         if logo_path and os.path.exists(logo_path):
             logo = Image(logo_path, width=100, height=100)
             logo.hAlign = "CENTER"
             story.append(logo)
 
+        # Title + School
         story.extend([
             Paragraph("CHAMP Human Performance Lab Report", styles["Title"]),
             Paragraph('<para align="center">Southern Connecticut State University</para>', styles["Heading2"]),
@@ -586,7 +631,7 @@ class VO2MaxTest:
             FrameBreak()
         ])
 
-        # Athlete info
+        # Athlete Info Table
         athlete_table_data = [["Athlete Info", ""]] + [[k, str(v)] for k, v in athlete_data.items()]
         athlete_table = Table(athlete_table_data, colWidths=[100, 120])
         athlete_table.setStyle([
@@ -598,7 +643,7 @@ class VO2MaxTest:
         ])
         story.extend([athlete_table, FrameBreak()])
 
-        # VO2 test info
+        # Test Results Table
         vo2_table_data = [["Test Results", ""]] + [[k, str(v)] for k, v in vo2_data.items()]
         vo2_table = Table(vo2_table_data, colWidths=[100, 150])
         vo2_table.setStyle([
@@ -612,7 +657,7 @@ class VO2MaxTest:
         story.append(FrameBreak())
         story.append(Spacer(1, 110))
 
-        # Summary text
+        # Summary Report Section
         story.extend([
             Paragraph("<b>Summary Report:</b>", styles["Heading3"]),
             Spacer(1, 10),
@@ -622,11 +667,15 @@ class VO2MaxTest:
             PageBreak()
         ])
 
-        # Add paired plots + comments
+        # ==============================
+        # Add Plots + Comments (2 plots per page)
+        # ==============================
+
         for i in range(0, len(pdf_buffers), 2):
             left = pdf_buffers[i]
             right = pdf_buffers[i+1] if i+1 < len(pdf_buffers) else None
 
+            # Add left and right plots
             for plot_buf in [left, right]:
                 if not plot_buf:
                     continue
@@ -636,6 +685,7 @@ class VO2MaxTest:
                 story.append(img)
                 story.append(FrameBreak())
 
+            # Add Comments
             story.append(Paragraph("<b>Comments:</b>", styles["Heading2"]))
             story.append(Spacer(1, 10))
             for plot_buf in [left, right]:
@@ -646,6 +696,7 @@ class VO2MaxTest:
                 story.append(Paragraph(comment or "No comment provided.", styles["Normal"]))
                 story.append(Spacer(1, 10))
 
+            # Small logo footer (optional)
             if logo_path and os.path.exists(logo_path):
                 logo = Image(logo_path, width=60, height=60)
                 logo.hAlign = "RIGHT"
@@ -653,17 +704,22 @@ class VO2MaxTest:
 
             story.append(PageBreak())
 
-        # build story and output
+        # ==============================
+        # Build and Save PDF
+        # ==============================
+
         doc.build(story)
+
         st.success("✅ PDF generated successfully!")
         st.write("PDF saved as:", pdf_path)
 
-        # Offer download button
+        # Offer Download
         with open(pdf_path, "rb") as f:
             st.download_button("📥 Download PDF", f, file_name=pdf_path)
 
+        # Upload to AWS S3
         bucket_name = "champ-hpl-bucket"
-        s3_key = f"reports/{os.path.basename(pdf_path)}"  # make sure to not repeat full local path
+        s3_key = f"reports/{os.path.basename(pdf_path)}"
 
         try:
             s3_client.upload_file(pdf_path, bucket_name, s3_key)
@@ -671,5 +727,5 @@ class VO2MaxTest:
         except Exception as e:
             st.error(f"❌ Upload failed: {e}")
 
-        # Reset reviewing state once done
+        # Reset session state
         st.session_state.reviewing = False
