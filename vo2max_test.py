@@ -18,20 +18,22 @@ from datetime import datetime
 
 class VO2MaxTest:
     def __init__(self, user_id=None):
+        """Initialize database connection, S3 client, and prepare environment."""
         self.user_id = user_id
 
-        # Load .env and connect to DB
+        # Load environment variables (.env)
         dotenv_path = os.path.abspath(os.path.join("capstone work/.env"))
         load_dotenv(dotenv_path)
 
+        # Setup MongoDB connection
         database_credentials = os.getenv("database_credentials")
         self.client = MongoClient(database_credentials)
         self.db = self.client['performance-lab']
-        self.collection = self.db['vo2max']
+        self.collection = self.db['vo2max']  # VO2 max specific tests
         self.users_col = self.db['users']
         self.reports_col = self.db['reports']
 
-        # S3 setup
+        # Setup AWS S3 connection for storing PDFs
         aws_access_key_id = os.getenv("aws_access_key_id")
         aws_secret_access_key = os.getenv("aws_secret_access_key")
 
@@ -43,21 +45,26 @@ class VO2MaxTest:
         )
 
     def parse_test(self, document):
+        """Parse the provided VO2 Max document and load it into Streamlit session."""
         try:
+            # Save entire document to session
             st.session_state.selected_document = document
 
+            # Break apart key data sections
             report_info = document["VO2 Max Report Info"]
             patient_info = report_info["Patient Info"]
             test_protocol = report_info["Test Protocol"]
             results = test_protocol["Results"]
             tabular_data = report_info["Tabular Data"]
 
+            # Convert tabular data into dataframe for easy use
             df = pd.DataFrame(tabular_data)
 
-            # Convert VO2/VCO2 from L to mL
+            # Rescale VO2 and VCO2 to mL (stored as L originally)
             columns_to_convert = ['VO2 STPD', 'VCO2 STPD']
             df[columns_to_convert] = df[columns_to_convert] * 1000
 
+            # Store DataFrame in session
             st.session_state.df = df
 
             return patient_info, test_protocol, results, df
@@ -67,45 +74,58 @@ class VO2MaxTest:
             return None
         
     def get_plot_functions(self):
+        """Return list of plotting functions for different VO2 Max test metrics."""
         df = st.session_state.get("df")
 
+        # --- Plot: V-Slope Analysis ---
         def plot_vslope(ax, df):
+            """Plot V-Slope (VO2 vs VCO2) and determine ventilatory threshold."""
             ax.scatter(df['VO2 STPD'], df['VCO2 STPD'], label='V-Slope', marker='o', s=10)
+
+            # Sort data to fit two linear trends
             sorted_data = df.sort_values('VO2 STPD')
             vo2_values = sorted_data['VO2 STPD'].values
             vco2_values = sorted_data['VCO2 STPD'].values
             mid_point = len(vo2_values) // 2
 
+            # Fit trendlines before and after midpoint
             z1 = np.polyfit(vo2_values[:mid_point], vco2_values[:mid_point], 1)
             p1 = np.poly1d(z1)
 
             z2 = np.polyfit(vo2_values[mid_point:], vco2_values[mid_point:], 1)
             p2 = np.poly1d(z2)
 
+            # Find intersection (threshold)
             a, b = z1
             c, d = z2
             intersection_x = (d - b) / (a - c)
             intersection_y = p1(intersection_x)
 
+            # Create separate line ranges before/after threshold
             x_range1 = np.linspace(vo2_values.min(), vo2_values.max() - 700, 50)
             x_range2 = np.linspace(vo2_values.min() + 1100, vo2_values.max(), 50)
+
             ax.plot(x_range1, p1(x_range1), '--', color='green', label='Pre-threshold')
             ax.plot(x_range2, p2(x_range2), '--', color='red', label='Post-threshold')
-
             ax.axvline(x=intersection_x, color='blue', linestyle=':', label='Threshold')
 
+            # Formatting
             ax.set_xlabel("VO2 STPD (mL/min)", fontweight='bold')
             ax.set_ylabel("VCO2 STPD (mL/min)", fontweight='bold')
             ax.set_title("V-Slope", fontweight='bold')
             ax.legend()
             ax.grid()
 
+        # --- Plot: VO2 Over Time ---
         def plot_vo2(ax, df):
-            ax.scatter(df['Time'], df['VO2 STPD'], label='VO2 ml', marker='o', s = 10)
+            """Plot VO2 uptake over time with a smoothed trendline."""
+            ax.scatter(df['Time'], df['VO2 STPD'], label='VO2 ml', marker='o', s=10)
+
+            # Trendline (3rd degree polynomial)
             z = np.polyfit(df['Time'], df['VO2 STPD'], 3)
             p = np.poly1d(z)
             x_trend = np.linspace(df['Time'].min(), df['Time'].max(), 100)
-            ax.plot(x_trend, p(x_trend), '--', color='red', label='VO2 Trend')
+            ax.plot(x_trend, p(x_trend), '--', color='blue', label='VO2 Trend')
 
             ax.set_xlabel("Time (minutes)", fontweight='bold')
             ax.set_ylabel("VO2 STPD (mL/min)", fontweight='bold')
@@ -113,25 +133,33 @@ class VO2MaxTest:
             ax.legend()
             ax.grid()
 
+        # --- Plot: Heart Rate ---
         def plot_hr(ax, df):
+            """Plot Heart Rate over time."""
             ax.scatter(df['Time'], df['HR'], label='Heart Rate', marker='o', s=10)
+
             ax.set_xlabel("Time (minutes)", fontweight='bold')
             ax.set_ylabel("Heart Rate (bpm)", fontweight='bold')
             ax.set_title("Heart Rate over Time", fontweight='bold')
             ax.legend()
             ax.grid()
 
+        # --- Plot: Fat and Carbohydrate Oxidation ---
         def plot_fat_cho(ax, df):
+            """Plot fat and carbohydrate (CHO) oxidation rates over time."""
             ax.scatter(df['Time'], df['FATmin'], label='Fat Ox (g/min)', marker='o', color='tab:blue', s=10)
+            
+            # Fat Oxidation trendline
+            z = np.polyfit(df['Time'], df['FATmin'], 3)
+            p = np.poly1d(z)
+            x_trend = np.linspace(df['Time'].min(), df['Time'].max(), 100)
+            ax.plot(x_trend, p(x_trend), '--', color='blue', label='Fat Ox Trend')
+
             ax.set_xlabel("Time (minutes)", fontweight='bold')
             ax.set_ylabel("Fat Oxidation (g/min)", fontweight='bold', color='tab:blue')
             ax.tick_params(axis='y', labelcolor='tab:blue')
 
-            z = np.polyfit(df['Time'], df['FATmin'], 3)
-            p = np.poly1d(z)
-            x_trend = np.linspace(df['Time'].min(), df['Time'].max(), 100)
-            ax.plot(x_trend, p(x_trend), '--', color='red', label='Fat Ox Trend')
-
+            # CHO Oxidation on secondary axis
             ax2 = ax.twinx()
             ax2.scatter(df['Time'], df['CHOmin'], label='CHO Ox (g/min)', marker='o', color='tab:orange', s=10)
             ax2.set_ylabel("CHO Oxidation (g/min)", fontweight='bold', color='tab:orange')
@@ -140,62 +168,80 @@ class VO2MaxTest:
             ax.set_title("Fat and CHO Oxidation over Time", fontweight='bold')
             ax.grid()
 
+        # --- Plot: Ventilatory Equivalents + CO2 ---
         def plot_vent_co2(ax, df):
+            """Plot ventilatory equivalents (VE/VO2, VE/VCO2) and PetCO2 over time."""
             ax.scatter(df['Time'], df['VE/VO2'], label='VE/VO2', marker='o', color='tab:blue', s=10)
             ax.scatter(df['Time'], df['VE/VCO2'], label='VE/VCO2', marker='o', color='tab:green', s=10)
+
             ax.set_xlabel("Time (minutes)", fontweight='bold')
             ax.set_ylabel("VE/VO2 & VE/VCO2", fontweight='bold', color='tab:blue')
             ax.tick_params(axis='y', labelcolor='tab:blue')
 
+            # PetCO2 on secondary axis
             ax2 = ax.twinx()
             ax2.scatter(df['Time'], df['PetCO2'], label='PetCO2', marker='o', color='tab:orange', s=10)
 
+            # PetCO2 trendline
             z = np.polyfit(df['Time'], df['PetCO2'], 3)
             p = np.poly1d(z)
             x_trend = np.linspace(df['Time'].min(), df['Time'].max(), 100)
-            ax2.plot(x_trend, p(x_trend), '--', color='red', label='PetCO2 Trend')
+            ax2.plot(x_trend, p(x_trend), '--', color='orange', label='PetCO2 Trend')
 
             ax2.set_ylabel("PetCO2", fontweight='bold', color='tab:orange')
             ax2.tick_params(axis='y', labelcolor='tab:orange')
 
             ax.set_title("Ventilatory Equivalents & PetCO2 over Time", fontweight='bold')
+
+            # Combine legends
             lines1, labels1 = ax.get_legend_handles_labels()
             lines2, labels2 = ax2.get_legend_handles_labels()
             ax2.legend(lines1 + lines2, labels1 + labels2, loc='best')
             ax.grid()
 
+        # --- Plot: Ventilatory Equivalents + O2 ---
         def plot_vent_o2(ax, df):
+            """Plot ventilatory equivalents (VE/VO2, VE/VCO2) and PetO2 over time."""
             ax.scatter(df['Time'], df['VE/VO2'], label='VE/VO2', marker='o', color='tab:blue', s=10)
             ax.scatter(df['Time'], df['VE/VCO2'], label='VE/VCO2', marker='o', color='tab:green', s=10)
+
             ax.set_xlabel("Time (minutes)", fontweight='bold')
             ax.set_ylabel("VE/VO2 & VE/VCO2", fontweight='bold', color='tab:blue')
             ax.tick_params(axis='y', labelcolor='tab:blue')
 
+            # PetO2 on secondary axis
             ax2 = ax.twinx()
             ax2.scatter(df['Time'], df['PetO2'], label='PetO2', marker='o', color='tab:orange', s=10)
 
+            # PetO2 trendline
             z = np.polyfit(df['Time'], df['PetO2'], 3)
             p = np.poly1d(z)
             x_trend = np.linspace(df['Time'].min(), df['Time'].max(), 100)
-            ax2.plot(x_trend, p(x_trend), '--', color='red', label='PetO2 Trend')
+            ax2.plot(x_trend, p(x_trend), '--', color='orange', label='PetO2 Trend')
 
             ax2.set_ylabel("PetO2", fontweight='bold', color='tab:orange')
             ax2.tick_params(axis='y', labelcolor='tab:orange')
 
             ax.set_title("Ventilatory Equivalents & PetO2 over Time", fontweight='bold')
+
+            # Combine legends
             lines1, labels1 = ax.get_legend_handles_labels()
             lines2, labels2 = ax2.get_legend_handles_labels()
             ax2.legend(lines1 + lines2, labels1 + labels2, loc='best')
             ax.grid()
 
+        # --- Plot: Respiratory Exchange Ratio (RER) ---
         def plot_rer(ax, df):
+            """Plot Respiratory Exchange Ratio (RER) over time."""
             ax.scatter(df['Time'], df['RER'], label='RER', marker='o', s=10)
+
             ax.set_xlabel("Time (minutes)", fontweight='bold')
             ax.set_ylabel("RER", fontweight='bold')
             ax.set_title("Respiratory Exchange Ratio over Time", fontweight='bold')
             ax.legend()
             ax.grid()
 
+        # --- Return all plots together ---
         plot_functions = [
             ("V-Slope", plot_vslope),
             ("VO2 ml over Time", plot_vo2),
@@ -206,27 +252,28 @@ class VO2MaxTest:
             ("Respiratory Exchange Ratio over Time", plot_rer),
         ]
 
-        return plot_functions
+        return plot_functions       
 
     def generate_report_data(self):
+        """Prepare athlete and test information to be displayed in the final PDF report."""
+
+        # Fetch selected document from session
         document = st.session_state.get("selected_document")
 
+        # Error handling if no document loaded
         if document is None:
             st.error("No patient data found.")
             return None, None
 
+        # Extract main sections
         patient_info = document["VO2 Max Report Info"]["Patient Info"]
         test_protocol = document["VO2 Max Report Info"]["Test Protocol"]
         results = test_protocol["Results"]
 
-        # logic for sport
-        sport = "Unknown"
-        if test_protocol.get("Exercise Device") == "Treadmill":
-            sport = "Running"
-        elif test_protocol.get("Exercise Device") == "Bike":
-            sport = "Biking"
+        # ==============================
+        # Format patient information
+        # ==============================
 
-        # prepare patient info
         patient_info_for_pdf = {
             "Name": patient_info.get("Name"),
             "Sex": patient_info.get("Sex"),
@@ -235,7 +282,17 @@ class VO2MaxTest:
             "Weight": patient_info.get("Weight")
         }
 
-        # prepare test results
+        # ==============================
+        # Format test results information
+        # ==============================
+
+        # Guess the sport based on exercise device
+        sport = "Unknown"
+        if test_protocol.get("Exercise Device") == "Treadmill":
+            sport = "Running"
+        elif test_protocol.get("Exercise Device") == "Bike":
+            sport = "Biking"
+
         test_results_for_pdf = {
             "Sport": sport,
             "Test Degree": test_protocol.get("Test Degree", "Unknown"),
@@ -244,41 +301,57 @@ class VO2MaxTest:
             "VO2max Percentile": results.get("VO2max Percentile", "N/A")
         }
 
-        # save to session for PDF generation
+        # ==============================
+        # Store into Streamlit session for later use
+        # (used during PDF generation)
+        # ==============================
         st.session_state.athlete_data = patient_info_for_pdf
         st.session_state.vo2_data = test_results_for_pdf
 
+        # Return structured data
         return patient_info_for_pdf, test_results_for_pdf
 
     def load_saved_report(self):
-        report_col = self.db["report"] 
+        """Load an existing saved report from MongoDB into Streamlit session state."""
+
+        report_col = self.db["reports"]
         user_id = st.session_state.selected_patient["_id"]
         test_id = st.session_state.selected_test["_id"]
 
+        # Search MongoDB for an existing report for this patient and test
         report = report_col.find_one({"user_id": user_id, "test_id": test_id})
+
         if report:
-            # Restore summary
+            # Restore Summary Text
             st.session_state.initial_report_text = report.get("summary", "")
 
-            # Restore per-plot comments and flags
+            # ==============================
+            # Restore Per-Plot Comments and Selection Flags
+            # ==============================
             for plot in report.get("plots", []):
                 idx = plot.get("index")
                 title = plot.get("title")
                 comment = plot.get("comment", "")
                 include = plot.get("include", True)
 
+                # Save each comment and inclusion flag separately into session
                 st.session_state[f"comment_{idx}"] = comment
                 st.session_state[f"include_{idx}"] = include
 
+                # Initialize dictionary structures if missing
                 if "plot_comments" not in st.session_state:
                     st.session_state.plot_comments = {}
                 if "include_plot_flags" not in st.session_state:
                     st.session_state.include_plot_flags = {}
 
+                # Save under titles for quick lookup later
                 st.session_state.plot_comments[title] = comment
                 st.session_state.include_plot_flags[title] = include
 
+            # Return True if loading succeeded
             return True
+
+        # No report found
         return False
 
     def report_builder(self):
