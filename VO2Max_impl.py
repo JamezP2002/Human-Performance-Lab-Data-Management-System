@@ -47,7 +47,7 @@ if uploaded_file:
         "Time": {"Hour": df.iloc[2, 6], "Minute": df.iloc[2, 8], "Second": df.iloc[2, 9]}
     }
 
-    patient_info_dict = {
+    client_info_dict = {
         "File Number": df.iloc[5, 3],
         "Name": df.iloc[5, 1],
         "Age": df.iloc[6, 1],
@@ -127,16 +127,16 @@ if uploaded_file:
 
         st.title("Report Data")
         st.write(report_info_dict)
-        st.write(patient_info_dict)
+        st.write(client_info_dict)
         st.write(test_protocol_dict)
         st.title("Tabular Data")
         st.write(tabular_data)
         st.title("Tabular Data Dictionary:")
         st.write(tabular_data_dict)
 
-        name = patient_info_dict["Name"]
-        age = patient_info_dict["Age"]
-        sex = patient_info_dict["Sex"]
+        name = client_info_dict["Name"]
+        age = client_info_dict["Age"]
+        sex = client_info_dict["Sex"]
 
         user = users_collection.find_one({"Name": name})
         if user:
@@ -147,28 +147,28 @@ if uploaded_file:
 
             if user.get("Age") != age:
                 updated_fields["Age"] = age
-            if user.get("Height") != patient_info_dict["Height"]:
-                updated_fields["Height"] = patient_info_dict["Height"]
-            if user.get("Weight") != patient_info_dict["Weight"]:
-                updated_fields["Weight"] = patient_info_dict["Weight"]
-            if user.get("Doctor") != patient_info_dict["Doctor"]:
-                updated_fields["Doctor"] = patient_info_dict["Doctor"]
+            if user.get("Height") != client_info_dict["Height"]:
+                updated_fields["Height"] = client_info_dict["Height"]
+            if user.get("Weight") != client_info_dict["Weight"]:
+                updated_fields["Weight"] = client_info_dict["Weight"]
+            if user.get("Doctor") != client_info_dict["Doctor"]:
+                updated_fields["Doctor"] = client_info_dict["Doctor"]
 
             if updated_fields:
                 users_collection.update_one(
                     {"_id": user_id},
                     {"$set": updated_fields}
                 )
-                st.info(f"✅ Patient information updated: {', '.join(updated_fields.keys())}")
+                st.info(f"✅ Client information updated: {', '.join(updated_fields.keys())}")
         else:
             new_user = {
                 "Name": name,
                 "Age": age,
                 "Sex": sex,
-                "File Number": patient_info_dict["File Number"],
-                "Height": patient_info_dict["Height"],
-                "Weight": patient_info_dict["Weight"],
-                "Doctor": patient_info_dict["Doctor"],
+                "File Number": client_info_dict["File Number"],
+                "Height": client_info_dict["Height"],
+                "Weight": client_info_dict["Weight"],
+                "Doctor": client_info_dict["Doctor"],
                 "test_ids": []
             }
             user_id = users_collection.insert_one(new_user).inserted_id
@@ -177,7 +177,7 @@ if uploaded_file:
             "user_id": user_id,
             "VO2 Max Report Info": {
                 "Report Info": report_info_dict,
-                "Patient Info": patient_info_dict,
+                "Patient Info": client_info_dict,
                 "Test Protocol": test_protocol_dict,
                 "Tabular Data": tabular_data_dict
             }
