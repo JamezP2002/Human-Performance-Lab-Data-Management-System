@@ -708,12 +708,6 @@ class VO2MaxTest:
                 story.append(Paragraph(comment or "No comment provided.", styles["Normal"]))
                 story.append(Spacer(1, 10))
 
-            # Small logo footer (optional)
-            if logo_path and os.path.exists(logo_path):
-                logo = Image(logo_path, width=60, height=60)
-                logo.hAlign = "RIGHT"
-                story.append(logo)
-
             story.append(PageBreak())
 
         # ==============================
