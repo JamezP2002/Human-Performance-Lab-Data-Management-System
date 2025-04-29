@@ -8,9 +8,12 @@ home = st.Page("home.py", title="Home")
 
 pg = st.navigation(
     {
-        "Homepage": [home], 
-        "Uploader": [vo2Max_impl],
-        "Report Creator": [vo2Max_retrevial]
+        "🏠 HOMEPAGE": [home], 
+        "📂 UPLOADER": [vo2Max_impl := st.Page("VO2Max_impl.py", title="Upload Data")],
+        "📑 REPORTS": [
+            report_creator_page := st.Page("report_creator_page.py", title="Create Report"),
+            data_viewer := st.Page("report_viewer_page.py", title="View Report")
+        ]
     }
 )
 

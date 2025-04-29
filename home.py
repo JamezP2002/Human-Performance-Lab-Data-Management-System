@@ -53,28 +53,34 @@ st.markdown(
     </style>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Human Performance Lab Data Management System">
+    <meta name="description" content="CHAMP Human Performance Lab Data Management System">
+    
     <div class="container">
         <div class="header">
-            <h1>Welcome to the CHAMP Human Performance Lab</h1>
+            <h1>Welcome to the CHAMP Human Performance Lab Portal</h1>
         </div>
         <div class="content">
             <p>
-                This project/website is a Human Performance Lab Data Management System designed 
-                to streamline the storage, processing, and visualization of physiological test 
-                data at the CHAMP Human Performance Lab, specifically right now the VO2 Max and 
-                Resting Metabolic Rate (RMR) tests. The system utilizes MongoDB for data storage, 
-                Pandas for data handling, and Streamlit for an interactive web-based interface.
+                This portal is the Human Performance Lab Data Management System for the CHAMP Lab
+                at Southern Connecticut State University. It streamlines the storage, processing,
+                reporting, and visualization of physiological test data, currently supporting
+                VO₂ Max tests.
             </p>
             <p>
-                The following features are available:
+                The system integrates MongoDB for data storage, AWS S3 for report storage, and 
+                Streamlit for an interactive web-based interface.
+            </p>
+            <p>
+                <b>Available Features:</b>
             </p>
             <p class="features">
-                - <b>VO2 Max Retrieval/Report</b>: Retrieve and report VO2 Max data.<br>
-                - <b>VO2 Max Uploader</b>: Upload VO2 Max protocols.
+                - <b>Upload Test Data</b>: Upload VO₂ Max test results and protocols.<br>
+                - <b>Create Reports</b>: Build and save detailed lab reports with plots and comments.<br>
+                - <b>View/Download Reports</b>: Search clients and download finalized reports.<br>
+                - <b>Secure Cloud Storage</b>: All reports are automatically uploaded to AWS S3.
             </p>
             <p>
-                Explore the sections to learn more about each feature.
+                Use the navigation sidebar to get started!
             </p>
         </div>
     </div>
