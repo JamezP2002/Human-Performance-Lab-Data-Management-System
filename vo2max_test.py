@@ -717,7 +717,7 @@ class VO2MaxTest:
         doc.build(story)
 
         st.success("✅ PDF generated successfully!")
-        st.write("PDF saved as:", pdf_path)
+        #st.write("PDF saved as:", pdf_path)
 
         # Offer Download
         with open(pdf_path, "rb") as f:
