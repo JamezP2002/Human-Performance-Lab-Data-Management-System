@@ -568,7 +568,7 @@ class VO2MaxTest:
 
             fig, ax = plt.subplots(figsize=(5.5, 3.5))
             func(ax, df)
-            ax.set_title(plot_name, fontsize=7)
+            ax.set_title(plot_name, fontsize=15, fontweight='bold')
             plt.tight_layout()
 
             buf = io.BytesIO()
