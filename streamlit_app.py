@@ -42,6 +42,7 @@ if not st.session_state.logged_in:
     st.markdown(hide_sidebar_style, unsafe_allow_html=True)
 
     st.markdown("<h1 style='text-align: center;'>🔒 Login Required</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; font-size: 1.1em;'>Welcome to the CHAMP Human Performance Lab Data Management System</p>", unsafe_allow_html=True)
 
     # Create a centered container
     with st.container():
