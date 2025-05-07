@@ -103,8 +103,6 @@ with st.expander("🔍 Search Clients", expanded=True):
                         st.subheader("📋 Report Summary")
                         st.write(selected_report.get("summary", "No summary available."))
 
-                        st.subheader("📥 Download Report PDF")
-
                         # Generate PDF file name for S3 retrieval
                         date_obj = selected_report.get("test_date", {})
                         if isinstance(date_obj, dict):

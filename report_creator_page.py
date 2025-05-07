@@ -52,15 +52,15 @@ if not st.session_state['report_builder'] and not st.session_state['reviewing']:
             clients = list(users_col.find(query))
 
             if clients:
-                selected_client = st.selectbox("Select client", clients, format_func=lambda x: x['Name'])
+                selected_client = st.selectbox("Select Client", clients, format_func=lambda x: x['Name'])
 
                 if selected_client:
                     st.session_state.selected_client = selected_client
 
                     # ===============================
-                    # Display Selected client Info
+                    # Display Selected Client Info
                     # ===============================
-                    st.write("**client Info:**")
+                    st.write("**Client Info:**")
                     col1, col2 = st.columns(2)
                     with col1:
                         st.markdown(f"**Age:** {selected_client.get('Age')} years")
@@ -224,7 +224,7 @@ if st.session_state['report_builder']:
         # ===============================
         # Navigation Button
         # ===============================
-        if st.button("Back to client Select"):
+        if st.button("Back to Client Select"):
             # Reset builder state and return to the client/test selection page
             for key in ['report_builder', 'report_loaded', 'selected_test', 'selected_client']:
                 st.session_state[key] = None if key.startswith('selected') else False
