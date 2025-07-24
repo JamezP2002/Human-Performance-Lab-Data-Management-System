@@ -69,7 +69,11 @@ else:
     # =====================
     # MAIN APP NAVIGATION
     # =====================
-    st.sidebar.success(f"Logged in as {st.session_state.username}")
+    st.sidebar.markdown(
+    f"✅ **Logged in as `{st.session_state.username}`**",
+    unsafe_allow_html=True
+)
+
 
     if st.sidebar.button("Log Out"):
         st.session_state.logged_in = False
