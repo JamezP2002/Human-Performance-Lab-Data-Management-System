@@ -65,7 +65,6 @@ if not st.session_state['report_builder'] and not st.session_state['reviewing']:
                     with col1:
                         st.markdown(f"**Age:** {selected_client.get('Age')} years")
                         st.markdown(f"**Sex:** {selected_client.get('Sex')}")
-                        st.markdown(f"**Doctor:** {selected_client.get('Doctor', 'N/A')}")
                     with col2:
                         st.markdown(f"**Height:** {selected_client.get('Height', 'N/A')} in")
                         st.markdown(f"**Weight:** {selected_client.get('Weight', 'N/A')} lb")
@@ -207,7 +206,7 @@ if st.session_state['report_builder']:
         st.subheader("Results")
         col5, col6 = st.columns(2)
         with col5:
-            st.markdown(f"**Max VO₂:** {results.get('Max VO2', 'N/A'):.2f} L/min")
+            st.markdown(f"**Max VO₂:** {results.get('Max VO2', 'N/A'):.2f} ML/min")
         with col6:
             st.markdown(f"**VO₂max Percentile:** {results.get('VO2max Percentile', 'N/A')}")
 

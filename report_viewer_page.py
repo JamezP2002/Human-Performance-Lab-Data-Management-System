@@ -4,6 +4,7 @@ import os
 from dotenv import load_dotenv
 import boto3
 import pandas as pd
+from streamlit_pdf_viewer import pdf_viewer
 
 ###################################
 """Report Viewer 
@@ -55,7 +56,6 @@ with st.expander("🔍 Search Clients", expanded=True):
                 with col1:
                     st.markdown(f"**Age:** {selected_client.get('Age')} years")
                     st.markdown(f"**Sex:** {selected_client.get('Sex')}")
-                    st.markdown(f"**Doctor:** {selected_client.get('Doctor', 'N/A')}")
                 with col2:
                     st.markdown(f"**Height:** {selected_client.get('Height', 'N/A')} in")
                     st.markdown(f"**Weight:** {selected_client.get('Weight', 'N/A')} lb")
@@ -100,9 +100,7 @@ with st.expander("🔍 Search Clients", expanded=True):
 
                     if selected_report:
                         st.markdown("---")
-                        st.subheader("📋 Report Summary")
-                        st.write(selected_report.get("summary", "No summary available."))
-
+                        
                         # Generate PDF file name for S3 retrieval
                         date_obj = selected_report.get("test_date", {})
                         if isinstance(date_obj, dict):
@@ -123,6 +121,12 @@ with st.expander("🔍 Search Clients", expanded=True):
                         clean_name = selected_client['Name'].replace(',', '').replace(' ', '_')
                         pdf_filename = f"test_report_{clean_name}_{test_date_str}.pdf"
                         s3_key = f"reports/{pdf_filename}"
+
+                        st.subheader("📋 Report")
+
+                        # Getting the PDF from S3 to view it
+                        #pdf_url = f"https://{bucket_name}.s3.amazonaws.com/{s3_key}"
+                        #pdf_viewer(pdf_url) 
 
                         try:
                             with st.spinner("Downloading from S3..."):

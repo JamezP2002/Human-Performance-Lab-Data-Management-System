@@ -42,9 +42,6 @@ if uploaded_file:
     except Exception as e:
         st.error(f"Failed to read Excel file: {e}")
 
-    st.title("Original File:")
-    st.dataframe(df)
-
     ###########################################################################################
     # Unstructured Data #
     ###########################################################################################
@@ -55,13 +52,11 @@ if uploaded_file:
     }
 
     client_info_dict = {
-        "File Number": df.iloc[5, 3],
         "Name": df.iloc[5, 1],
         "Age": df.iloc[6, 1],
         "Height": round(df.iloc[7, 3]),
         "Sex": df.iloc[6, 4],
         "Weight": round(df.iloc[7, 6]),
-        "Doctor": df.iloc[5, 5],    
     }
 
     test_protocol_dict = {
@@ -115,7 +110,7 @@ if uploaded_file:
         tabular_data_dict = tabular_data.to_dict(orient="records")
 
         results_row = end_row + 2
-        max_vo2_raw = df.iloc[results_row, 1]
+        max_vo2_raw = df.iloc[results_row, 3]
         max_vo2 = round(float(max_vo2_raw), 2) if not pd.isna(max_vo2_raw) else None
 
         vo2_percentile_raw = df.iloc[results_row + 2, 1]
@@ -132,15 +127,6 @@ if uploaded_file:
 
         test_protocol_dict.update(results_dict)
 
-        st.title("Report Data")
-        st.write(report_info_dict)
-        st.write(client_info_dict)
-        st.write(test_protocol_dict)
-        st.title("Tabular Data")
-        st.write(tabular_data)
-        st.title("Tabular Data Dictionary:")
-        st.write(tabular_data_dict)
-
         name = client_info_dict["Name"]
         age = client_info_dict["Age"]
         sex = client_info_dict["Sex"]
@@ -149,7 +135,7 @@ if uploaded_file:
         if user:
             user_id = user["_id"]
 
-            # Update any fields that may have changed (age, height, weight, doctor)
+            # Update any fields that may have changed (age, height, weight)
             updated_fields = {}
 
             if user.get("Age") != age:
@@ -158,8 +144,6 @@ if uploaded_file:
                 updated_fields["Height"] = client_info_dict["Height"]
             if user.get("Weight") != client_info_dict["Weight"]:
                 updated_fields["Weight"] = client_info_dict["Weight"]
-            if user.get("Doctor") != client_info_dict["Doctor"]:
-                updated_fields["Doctor"] = client_info_dict["Doctor"]
 
             if updated_fields:
                 users_collection.update_one(
@@ -172,10 +156,8 @@ if uploaded_file:
                 "Name": name,
                 "Age": age,
                 "Sex": sex,
-                "File Number": client_info_dict["File Number"],
                 "Height": client_info_dict["Height"],
                 "Weight": client_info_dict["Weight"],
-                "Doctor": client_info_dict["Doctor"],
                 "test_ids": []
             }
             user_id = users_collection.insert_one(new_user).inserted_id
@@ -196,9 +178,23 @@ if uploaded_file:
             {"$push": {"test_ids": test_result.inserted_id}}
         )
 
-        st.success(f"Test uploaded and linked to user: {name}")
-        st.write("User ID:", user_id)
-        st.write("Test Document ID:", test_result.inserted_id)
+    st.success(f"Test uploaded and linked to user: {name}")
+    st.write("User ID:", user_id)
+    st.write("Test Document ID:", test_result.inserted_id)
+
+    with st.expander("View Raw Data", expanded=False):
+        st.dataframe(df)
+
+    with st.expander("View Parsed Data", expanded=False):
+        st.subheader("Report Data")
+        st.write(report_info_dict)
+        st.write(client_info_dict)
+        st.write(test_protocol_dict)
+        st.subheader("Tabular Data")
+        st.write(tabular_data)
+        st.subheader("Tabular Data Dictionary:")
+        st.write(tabular_data_dict)
+
 else:
     st.info("📂 Please upload an Excel file to begin.")
 
