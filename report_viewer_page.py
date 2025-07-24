@@ -125,8 +125,17 @@ with st.expander("🔍 Search Clients", expanded=True):
                         st.subheader("📋 Report")
 
                         # Getting the PDF from S3 to view it
-                        #pdf_url = f"https://{bucket_name}.s3.amazonaws.com/{s3_key}"
-                        #pdf_viewer(pdf_url) 
+                        url = s3.generate_presigned_url(
+                            "get_object",
+                            Params={"Bucket": bucket_name, "Key": s3_key},
+                            ExpiresIn=600
+                        )
+
+                        st.markdown(f"""
+                        <iframe src="{url}" width="100%" height="800px" type="application/pdf"></iframe>
+                        """, unsafe_allow_html=True)
+                        
+                        #pdf_viewer(url) 
 
                         try:
                             with st.spinner("Downloading from S3..."):

@@ -728,7 +728,15 @@ class VO2MaxTest:
         s3_key = f"reports/{os.path.basename(pdf_path)}"
 
         try:
-            s3_client.upload_file(pdf_path, bucket_name, s3_key)
+            s3_client.upload_file(
+                Filename=pdf_path,
+                Bucket=bucket_name,
+                Key=s3_key,
+                ExtraArgs={
+                    "ContentType": "application/pdf",
+                    "ContentDisposition": "inline"
+                }
+            )
             st.success("📤 Report successfully uploaded to S3!")
         except Exception as e:
             st.error(f"❌ Upload failed: {e}")

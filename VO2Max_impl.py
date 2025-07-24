@@ -179,19 +179,22 @@ if uploaded_file:
         )
 
     st.success(f"Test uploaded and linked to user: {name}")
-    st.write("User ID:", user_id)
-    st.write("Test Document ID:", test_result.inserted_id)
-
-    with st.expander("View Raw Data", expanded=False):
+    with st.expander("View Database Infomation", expanded=False):
+        st.write("User ID:", user_id)
+        st.write("Test Document ID:", test_result.inserted_id)
+    
+    with st.expander("View Report Information", expanded=False):
+        st.subheader("Original DataFrame")
         st.dataframe(df)
 
-    with st.expander("View Parsed Data", expanded=False):
         st.subheader("Report Data")
         st.write(report_info_dict)
         st.write(client_info_dict)
         st.write(test_protocol_dict)
+
         st.subheader("Tabular Data")
         st.write(tabular_data)
+        
         st.subheader("Tabular Data Dictionary:")
         st.write(tabular_data_dict)
 
