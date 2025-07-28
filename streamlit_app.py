@@ -5,14 +5,13 @@ from pymongo import MongoClient
 import bcrypt
 
 # the menu pages
-vo2Max_impl = st.Page("VO2Max_impl.py", title="Upload Data")
+data_uploader = st.Page("data_uploader.py", title="Upload Data")
 home = st.Page("home.py", title="Home")
 report_creator_page = st.Page("report_creator_page.py", title="Create Report")
 data_viewer = st.Page("report_viewer_page.py", title="View Report")
 
 # Setup MongoDB connection
-dotenv_path = os.path.abspath(os.path.join("capstone work/.env"))
-load_dotenv(dotenv_path)
+load_dotenv()
 database_credentials = os.getenv("database_credentials")
 
 client = MongoClient(database_credentials)
@@ -85,7 +84,7 @@ else:
     pg = st.navigation(
         {
             "🏠 HOMEPAGE": [home], 
-            "📂 UPLOADER": [vo2Max_impl],
+            "📂 UPLOADER": [data_uploader],
             "📑 REPORTS": [report_creator_page, data_viewer]
         }
     )

@@ -5,8 +5,9 @@ import os
 import bcrypt
 
 # Load environment variables
-dotenv_path = os.path.abspath(os.path.join("capstone work/.env"))
-load_dotenv(dotenv_path)
+#dotenv_path = os.path.abspath(os.path.join("human-peformance-lab-capstone/.env"))
+#print(dotenv_path)  # Debugging
+load_dotenv()
 database_credentials = os.getenv("database_credentials")
 
 # Connect to MongoDB
@@ -38,3 +39,7 @@ if st.button("Create Account"):
             })
 
             st.success(f"✅ Account created successfully for {username}")
+    
+    # check if user is in the database
+    if auth_users_col.find_one({"username": username}):
+        st.success(f"User {username} exists in the database.")

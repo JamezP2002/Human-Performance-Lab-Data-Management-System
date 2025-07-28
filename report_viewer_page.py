@@ -7,16 +7,14 @@ import pandas as pd
 from streamlit_pdf_viewer import pdf_viewer
 
 ###################################
-"""Report Viewer 
-This page allows lab techs to search clients and view/download test reports
+"""This page allows lab techs to search clients and view/download test reports
 without editing access. Reports are fetched from AWS S3 and metadata from MongoDB."""
 ###################################
 
 # ===============================
 # Environment & MongoDB Setup
 # ===============================
-dotenv_path = os.path.abspath(os.path.join("capstone work/.env"))
-load_dotenv(dotenv_path)
+load_dotenv()
 
 database_credentials = os.getenv("database_credentials")
 aws_access_key = os.getenv("aws_access_key_id")

@@ -17,8 +17,7 @@ choose a test, and either generate a new report or edit an existing one."""
 # ===============================
 
 # Load environment variables (MongoDB URI, etc.)
-dotenv_path = os.path.abspath(os.path.join("capstone work/.env"))
-load_dotenv(dotenv_path)
+load_dotenv()
 database_credentials = os.getenv("database_credentials")
 
 # Connect to MongoDB
