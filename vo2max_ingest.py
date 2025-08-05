@@ -104,9 +104,9 @@ class VO2MaxParser:
 
         # Final payload
         parsed = {
-            "report_info": report_info,
-            "client_info": client_info,
-            "test_protocol": test_protocol,
-            "tabular_data": tabular_records
+            "Report Info": report_info,
+            "Client Info": client_info,
+            "Test Protocol": test_protocol,
+            "Tabular Data": tabular_records
         }
         return parsed

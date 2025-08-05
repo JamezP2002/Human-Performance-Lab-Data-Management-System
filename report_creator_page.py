@@ -2,8 +2,16 @@ from pymongo import MongoClient
 import streamlit as st
 import os
 from dotenv import load_dotenv
-from vo2max_test import VO2MaxTest
 import pandas as pd
+
+# loading tests
+from vo2max_test import VO2MaxTest
+from rmr_test import RMRTest
+
+TEST_CLASS_MAP = {
+    "VO2_MAX": VO2MaxTest,
+    "RMR":      RMRTest,
+}
 
 ###################################
 """Human Performance Lab Report Builder
@@ -124,6 +132,7 @@ if not st.session_state['report_builder'] and not st.session_state['reviewing']:
                                     st.session_state.reviewing = False
                                     st.session_state.report_loaded = False
                                     st.rerun()
+
                             else:
                                 if st.button("📄 Generate Report"):
                                     st.session_state.selected_test = selected_test

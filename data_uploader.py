@@ -17,16 +17,16 @@ db = client['performance-lab']
 
 # Users and Tests collections
 users_collection = db['users']
-tests_collection = db['vo2max'] 
 
 # import parser classes
-from vo2max_ingest import VO2MaxParser  
+from vo2max_ingest import VO2MaxParser 
+from rmr_ingest import RMRParser
 
 rmr_params = ["Rest"]
 vo2max_params = ["Maximal"]
 
 ###########################################################################################
-# Introduction #
+# Introduction 
 ###########################################################################################
 st.title("This is a Data Uploader.")
 st.write("This app will parse the raw excel data and store it in a MongoDB database.")
@@ -57,12 +57,15 @@ if uploaded_file:
 
         if parse_param == rmr_params:
             st.success("RMR data detected.")
-            st.write("Processing RMR data...")
-            # Implement RMR data processing logic here
+            parser = RMRParser(df)
+            tests_collection = db['rmr'] 
+            report_name = "RMR Report Info"
         elif parse_param == vo2max_params:
             st.success("VO2 Max data detected.")
             #st.write("Processing VO2 Max data...")
             parser = VO2MaxParser(df)
+            tests_collection = db['vo2max']
+            report_name = "VO2 Max Report Info"
         else:
             st.error("Unsupported data type. Please upload a valid RMR or VO2 Max data file.")
 
@@ -70,10 +73,10 @@ if uploaded_file:
         #st.write(parsed) 
 
         # Extracting parsed data
-        report_info   = parsed["report_info"]
-        client_info   = parsed["client_info"]
-        test_protocol = parsed["test_protocol"]
-        tabular_data  = parsed["tabular_data"]
+        report_info   = parsed["Report Info"]
+        client_info   = parsed["Client Info"]
+        test_protocol = parsed["Test Protocol"]
+        tabular_data  = parsed["Tabular Data"]
 
         name   = client_info["Name"]
         age    = client_info["Age"]
@@ -107,7 +110,7 @@ if uploaded_file:
 
         test_document = {
             "user_id": user_id,
-            "VO2 Max Report Info": {
+            f"{report_name}": {
                 "Report Info":   report_info,
                 "Client Info":   client_info,
                 "Test Protocol": test_protocol,
