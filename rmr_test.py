@@ -16,7 +16,7 @@ import io
 import numpy as np
 from datetime import datetime
 
-class VO2MaxTest:
+class RMRTest:
     def __init__(self, user_id=None):
         """Initialize database connection, S3 client, and prepare environment."""
         self.user_id = user_id
@@ -45,24 +45,22 @@ class VO2MaxTest:
         )
 
     def parse_test(self, document):
-        """Parse the provided VO2 Max document and load it into Streamlit session."""
+        """Parse the provided document and load it into Streamlit session."""
         try:
             # Save entire document to session
             st.session_state.selected_document = document
 
             # Break apart key data sections
-            report_info = document["VO2 Max Report Info"]
+            report_info = document["RMR Report Info"]
             client_info = report_info["Client Info"]
             test_protocol = report_info["Test Protocol"]
             results = test_protocol["Results"]
             tabular_data = report_info["Tabular Data"]
 
+            self.results = results
+
             # Convert tabular data into dataframe for easy use
             df = pd.DataFrame(tabular_data)
-
-            # Rescale VO2 and VCO2 to mL (stored as L originally)
-            columns_to_convert = ['VO2 STPD', 'VCO2 STPD']
-            df[columns_to_convert] = df[columns_to_convert] * 1000
 
             # Store DataFrame in session
             st.session_state.df = df
@@ -72,196 +70,160 @@ class VO2MaxTest:
         except Exception as e:
             st.error(f"Failed to parse test document: {e}")
             return None
-        
+
+    def draw_rq_bullet(self, rq_value, ax):
+
+        """
+        Draw a bullet gauge for Respiratory Quotient (RQ).
+        Zones (default matplotlib colors):
+        • <0.63  (“Check”)
+        • 0.63–0.78  (“High”)
+        • 0.78–0.93  (“Normal”)
+        • 0.93–1.00  (“Low”)
+        • >1.00  (“Check”)
+        """
+        # Define breakpoints
+        min_val, zone1, zone2, zone3, max_val = 0.50, 0.63, 0.78, 0.93, 1.00
+
+        # Draw each zone as a horizontal bar
+        ax.barh(0, zone1 - min_val, left=min_val, height=0.4)
+        ax.barh(0, zone2 - zone1, left=zone1, height=0.4)
+        ax.barh(0, zone3 - zone2, left=zone2, height=0.4)
+        ax.barh(0, max_val - zone3, left=zone3, height=0.4)
+
+        # Draw the “pointer”
+        ax.plot([rq_value], [0], marker='v', markersize=12)
+
+        # Clean up axes
+        ax.set_xlim(min_val, max_val)
+        ax.set_yticks([])
+        ax.set_xlabel("Respiratory Quotient (RQ)")
+        ax.set_title("Metabolic Efficiency (RQ)")
+        ax.tick_params(axis='x', which='both', length=0)
+    
+    def plot_ree_bullet(self, ax):
+        """
+        Draw a bullet gauge for Resting Energy Expenditure (REE).
+        Expects in `self.results["REE"]` your measured kcal/day,
+        and `self.results["LLN"]`, `self.results["ULN"]` the normative bounds.
+        """
+
+        # pull values out of the parsed results
+        ree = getattr(self, "results", {}).get("Avg RMR", 0)
+
+        lln = 1000
+        uln = 2082
+
+        # define the chart span
+        min_val = 0
+        max_val = uln * 1.3  # give some padding beyond ULN
+
+        # draw the slow, normal, fast zones
+        ax.barh(0, lln - min_val,   left=min_val, height=0.4, label="Slow")
+        ax.barh(0, uln - lln,       left=lln,    height=0.4, label="Normal")
+        ax.barh(0, max_val - uln,   left=uln,    height=0.4, label="Fast")
+
+        # draw the pointer
+        ax.plot([ree], [0], marker="v", markersize=12, color="black")
+
+        # formatting
+        ax.set_xlim(min_val, max_val)
+        ax.set_yticks([])
+        ax.set_xlabel("REE (kcal/day)")
+        ax.set_title("Resting Energy Expenditure (REE)")
+        #ax.legend(loc="lower right")
+
     def get_plot_functions(self):
-        """Return list of plotting functions for different VO2 Max test metrics."""
+        """Return list of plotting functions for different test metrics."""
         df = st.session_state.get("df")
 
-        # --- Plot: V-Slope Analysis ---
-        def plot_vslope(ax, df):
-            """Plot V-Slope (VO2 vs VCO2) and determine ventilatory threshold."""
-            ax.scatter(df['VO2 STPD'], df['VCO2 STPD'], label='V-Slope', marker='o', s=10)
+        # Time-Series Plot of RMR (kcal/day)
+        def plot_rmr_over_time(ax, df):
+            """Plot RMR over time."""
+            ax.plot(df["Time"], df["REE"], label="RMR (kcal/day)", color='blue')
+            ax.set_xlabel("Time (minutes)")
+            ax.set_ylabel("RMR (kcal/day)")
+            ax.set_title("RMR Over Time")
+            ax.grid(True)
+            ax.legend()
 
-            # Sort data to fit two linear trends
-            sorted_data = df.sort_values('VO2 STPD')
-            vo2_values = sorted_data['VO2 STPD'].values
-            vco2_values = sorted_data['VCO2 STPD'].values
-            mid_point = len(vo2_values) // 2
+            # Add trend line after 10 minutes to show RMR stability
+            if len(df) > 10:
+                x = df["Time"][10:]
+                y = df["REE"][10:]
+                z = np.polyfit(x, y, 1)
+                p = np.poly1d(z)
+                ax.plot(x, p(x), color='red', linestyle='--', label="Trend Line")
+                ax.legend()
 
-            # Fit trendlines before and after midpoint
-            z1 = np.polyfit(vo2_values[:mid_point], vco2_values[:mid_point], 1)
-            p1 = np.poly1d(z1)
+        def draw_rq_bullet(ax, df):
 
-            z2 = np.polyfit(vo2_values[mid_point:], vco2_values[mid_point:], 1)
-            p2 = np.poly1d(z2)
+            rq_value = self.results.get("RQ", 0.0)
 
-            # Find intersection (threshold)
-            a, b = z1
-            c, d = z2
-            intersection_x = (d - b) / (a - c)
-            intersection_y = p1(intersection_x)
+            """
+            Draw a bullet gauge for Respiratory Quotient (RQ).
+            Zones (default matplotlib colors):
+            • <0.63  (“Check”)
+            • 0.63–0.78  (“High”)
+            • 0.78–0.93  (“Normal”)
+            • 0.93–1.00  (“Low”)
+            • >1.00  (“Check”)
+            """
+            # Define breakpoints
+            min_val, zone1, zone2, zone3, max_val = 0.50, 0.63, 0.78, 0.93, 1.00
 
-            # Create separate line ranges before/after threshold
-            x_range1 = np.linspace(vo2_values.min(), vo2_values.max() - 700, 50)
-            x_range2 = np.linspace(vo2_values.min() + 1100, vo2_values.max(), 50)
+            # Draw each zone as a horizontal bar
+            ax.barh(0, zone1 - min_val, left=min_val, height=0.4)
+            ax.barh(0, zone2 - zone1, left=zone1, height=0.4)
+            ax.barh(0, zone3 - zone2, left=zone2, height=0.4)
+            ax.barh(0, max_val - zone3, left=zone3, height=0.4)
 
-            ax.plot(x_range1, p1(x_range1), '--', color='green', label='Pre-threshold')
-            ax.plot(x_range2, p2(x_range2), '--', color='red', label='Post-threshold')
-            ax.axvline(x=intersection_x, color='blue', linestyle=':', label='Threshold')
+            # Draw the “pointer”
+            ax.plot([rq_value], [0], marker='v', markersize=12)
 
-            # Formatting
-            ax.set_xlabel("VO2 STPD (mL/min)", fontweight='bold')
-            ax.set_ylabel("VCO2 STPD (mL/min)", fontweight='bold')
-            ax.set_title("V-Slope", fontweight='bold')
-            ax.legend(fontsize=8)
-            ax.grid()
+            # Clean up axes
+            ax.set_xlim(min_val, max_val)
+            ax.set_yticks([])
+            ax.set_xlabel("Respiratory Quotient (RQ)")
+            ax.set_title("Metabolic Efficiency (RQ)")
+            ax.tick_params(axis='x', which='both', length=0)
+    
+        def plot_ree_bullet(ax, df):
+            """
+            Draw a bullet gauge for Resting Energy Expenditure (REE).
+            Expects in `self.results["REE"]` your measured kcal/day,
+            and `self.results["LLN"]`, `self.results["ULN"]` the normative bounds.
+            """
 
-        # --- Plot: VO2 Over Time ---
-        def plot_vo2(ax, df):
-            """Plot VO2 uptake over time with a smoothed trendline."""
-            ax.scatter(df['Time'], df['VO2 STPD'], label='VO2 ml', marker='o', s=10)
+            # pull values out of the parsed results
+            ree = getattr(self, "results", {}).get("Avg RMR", 0)
 
-            # Trendline (3rd degree polynomial)
-            z = np.polyfit(df['Time'], df['VO2 STPD'], 3)
-            p = np.poly1d(z)
-            x_trend = np.linspace(df['Time'].min(), df['Time'].max(), 100)
-            ax.plot(x_trend, p(x_trend), '--', color='blue', label='VO2 Trend')
+            lln = 1000
+            uln = 2082
 
-            ax.set_xlabel("Time (minutes)", fontweight='bold')
-            ax.set_ylabel("VO2 STPD (mL/min)", fontweight='bold')
-            ax.set_title("VO2 ml over Time", fontweight='bold')
-            ax.legend(fontsize=8)
-            ax.grid()
+            # define the chart span
+            min_val = 0
+            max_val = uln * 1.3  # give some padding beyond ULN
 
-        # --- Plot: Heart Rate ---
-        def plot_hr(ax, df):
-            """Plot Heart Rate over time."""
-            ax.scatter(df['Time'], df['HR'], label='Heart Rate', marker='o', s=10)
+            # draw the slow, normal, fast zones
+            ax.barh(0, lln - min_val,   left=min_val, height=0.4, label="Slow")
+            ax.barh(0, uln - lln,       left=lln,    height=0.4, label="Normal")
+            ax.barh(0, max_val - uln,   left=uln,    height=0.4, label="Fast")
 
-            ax.set_xlabel("Time (minutes)", fontweight='bold')
-            ax.set_ylabel("Heart Rate (bpm)", fontweight='bold')
-            ax.set_title("Heart Rate over Time", fontweight='bold')
-            ax.legend(fontsize=8)
-            ax.grid()
+            # draw the pointer
+            ax.plot([ree], [0], marker="v", markersize=12, color="black")
 
-        # --- Plot: Fat and Carbohydrate Oxidation ---
-        def plot_fat_cho(ax, df):
-            """Plot fat and carbohydrate (CHO) oxidation rates over time."""
-            ax.scatter(df['Time'], df['FATmin'], label='Fat Ox (g/min)', marker='o', color='tab:blue', s=10)
-            
-            # Fat Oxidation trendline
-            z = np.polyfit(df['Time'], df['FATmin'], 3)
-            p = np.poly1d(z)
-            x_trend = np.linspace(df['Time'].min(), df['Time'].max(), 100)
-            ax.plot(x_trend, p(x_trend), '--', color='blue', label='Fat Ox Trend')
-
-            ax.set_xlabel("Time (minutes)", fontweight='bold')
-            ax.set_ylabel("Fat Oxidation (g/min)", fontweight='bold', color='tab:blue')
-            ax.tick_params(axis='y', labelcolor='tab:blue')
-
-            # CHO Oxidation on secondary axis
-            ax2 = ax.twinx()
-            ax2.scatter(df['Time'], df['CHOmin'], label='CHO Ox (g/min)', marker='o', color='tab:orange', s=10)
-            ax2.set_ylabel("CHO Oxidation (g/min)", fontweight='bold', color='tab:orange')
-            ax2.tick_params(axis='y', labelcolor='tab:orange')
-
-            ax.set_title("Fat and CHO Oxidation over Time", fontweight='bold')
-            ax.grid()
-
-        # --- Plot: Ventilatory Equivalents + CO2 ---
-        def plot_vent_co2(ax, df):
-            """Plot ventilatory equivalents (VE/VO2, VE/VCO2) and PetCO2 over time."""
-            ax.scatter(df['Time'], df['VE/VO2'], label='VE/VO2', marker='o', color='tab:blue', s=10)
-            ax.scatter(df['Time'], df['VE/VCO2'], label='VE/VCO2', marker='o', color='tab:green', s=10)
-
-            ax.set_xlabel("Time (minutes)", fontweight='bold')
-            ax.set_ylabel("VE/VO2 & VE/VCO2", fontweight='bold', color='tab:blue')
-            ax.tick_params(axis='y', labelcolor='tab:blue')
-
-            ax2 = ax.twinx()
-            ax2.scatter(df['Time'], df['PetCO2'], label='PetCO2', marker='o', color='tab:orange', s=10)
-
-            # Trendline for PetCO2
-            z = np.polyfit(df['Time'], df['PetCO2'], 3)
-            p = np.poly1d(z)
-            x_trend = np.linspace(df['Time'].min(), df['Time'].max(), 100)
-            ax2.plot(x_trend, p(x_trend), '--', color='orange', label='PetCO2 Trend')
-
-            ax2.set_ylabel("PetCO2", fontweight='bold', color='tab:orange')
-            ax2.tick_params(axis='y', labelcolor='tab:orange')
-
-            ax.set_title("Ventilatory Equivalents & PetCO2 over Time", fontweight='bold')
-
-            # --- Expand y-limits a little to make space for legend ---
-            y1_min, y1_max = ax.get_ylim()
-            ax.set_ylim(y1_min, y1_max + (y1_max - y1_min) * 0.15)
-
-            y2_min, y2_max = ax2.get_ylim()
-            ax2.set_ylim(y2_min, y2_max + (y2_max - y2_min) * 0.15)
-
-            # Combine legends
-            lines1, labels1 = ax.get_legend_handles_labels()
-            lines2, labels2 = ax2.get_legend_handles_labels()
-            ax2.legend(lines1 + lines2, labels1 + labels2, fontsize=8)
-            ax.grid()
-
-        # --- Plot: Ventilatory Equivalents + O2 ---
-        def plot_vent_o2(ax, df):
-            """Plot ventilatory equivalents (VE/VO2, VE/VCO2) and PetO2 over time."""
-            ax.scatter(df['Time'], df['VE/VO2'], label='VE/VO2', marker='o', color='tab:blue', s=10)
-            ax.scatter(df['Time'], df['VE/VCO2'], label='VE/VCO2', marker='o', color='tab:green', s=10)
-
-            ax.set_xlabel("Time (minutes)", fontweight='bold')
-            ax.set_ylabel("VE/VO2 & VE/VCO2", fontweight='bold', color='tab:blue')
-            ax.tick_params(axis='y', labelcolor='tab:blue')
-
-            ax2 = ax.twinx()
-            ax2.scatter(df['Time'], df['PetO2'], label='PetO2', marker='o', color='tab:orange', s=10)
-
-            # Trendline for PetO2
-            z = np.polyfit(df['Time'], df['PetO2'], 3)
-            p = np.poly1d(z)
-            x_trend = np.linspace(df['Time'].min(), df['Time'].max(), 100)
-            ax2.plot(x_trend, p(x_trend), '--', color='orange', label='PetO2 Trend')
-
-            ax2.set_ylabel("PetO2", fontweight='bold', color='tab:orange')
-            ax2.tick_params(axis='y', labelcolor='tab:orange')
-
-            ax.set_title("Ventilatory Equivalents & PetO2 over Time", fontweight='bold')
-
-            # --- Expand y-limits a little to make space for legend ---
-            y1_min, y1_max = ax.get_ylim()
-            ax.set_ylim(y1_min, y1_max + (y1_max - y1_min) * 0.15)
-
-            y2_min, y2_max = ax2.get_ylim()
-            ax2.set_ylim(y2_min, y2_max + (y2_max - y2_min) * 0.15)
-
-            # Combine legends
-            lines1, labels1 = ax.get_legend_handles_labels()
-            lines2, labels2 = ax2.get_legend_handles_labels()
-            ax2.legend(lines1 + lines2, labels1 + labels2, fontsize=8)
-            ax.grid()
-
-        # --- Plot: Respiratory Exchange Ratio (RER) ---
-        def plot_rer(ax, df):
-            """Plot Respiratory Exchange Ratio (RER) over time."""
-            ax.scatter(df['Time'], df['RER'], label='RER', marker='o', s=10)
-
-            ax.set_xlabel("Time (minutes)", fontweight='bold')
-            ax.set_ylabel("RER", fontweight='bold')
-            ax.set_title("Respiratory Exchange Ratio over Time", fontweight='bold')
-            ax.legend(fontsize=8)
-            ax.grid()
-
-        # --- Return all plots together ---
+            # formatting
+            ax.set_xlim(min_val, max_val)
+            ax.set_yticks([])
+            ax.set_xlabel("REE (kcal/day)")
+            ax.set_title("Resting Energy Expenditure (REE)")
+            #ax.legend(loc="lower right")
+        
         plot_functions = [
-            ("V-Slope", plot_vslope),
-            ("VO2 ml over Time", plot_vo2),
-            ("Heart Rate over Time", plot_hr),
-            ("Fat and CHO Ox over Time", plot_fat_cho),
-            ("Ventilatory Equivalents & End Tidal CO2 Tension", plot_vent_co2),
-            ("Ventilatory Equivalents & End Tidal O2 Tension", plot_vent_o2),
-            ("Respiratory Exchange Ratio over Time", plot_rer),
+            ("REE Bullet Gauge", plot_ree_bullet),
+            ("RQ Bullet Gauge", draw_rq_bullet),
+            ("RMR Over Time", plot_rmr_over_time)
         ]
 
         return plot_functions       
@@ -278,8 +240,8 @@ class VO2MaxTest:
             return None, None
 
         # Extract main sections
-        client_info = document["VO2 Max Report Info"]["Client Info"]
-        test_protocol = document["VO2 Max Report Info"]["Test Protocol"]
+        client_info = document["RMR Report Info"]["Client Info"]
+        test_protocol = document["RMR Report Info"]["Test Protocol"]
         results = test_protocol["Results"]
 
         # ==============================
@@ -298,19 +260,18 @@ class VO2MaxTest:
         # Format test results information
         # ==============================
 
-        # Guess the sport based on exercise device
-        sport = "Unknown"
-        if test_protocol.get("Exercise Device") == "Treadmill":
-            sport = "Running"
-        elif test_protocol.get("Exercise Device") == "Bike":
-            sport = "Biking"
+        # Guess the sport 
+        sport = ""
+        if test_protocol.get("Exercise Device") == "Rest":
+            sport = "Nothing"
+        else:
+            sport = "Unknown"
 
         test_results_for_pdf = {
             "Sport": sport,
-            "Test Degree": test_protocol.get("Test Degree", "Unknown"),
-            "Exercise Device": test_protocol.get("Exercise Device", "Unknown"),
-            "Max VO2": results.get("Max VO2", "N/A"),
-            "VO2max Percentile": results.get("VO2max Percentile", "N/A")
+            "Avg RMR": results.get("Avg RMR", 0.0),
+            "Predicted RMR": results.get("Predicted RMR", 0.0),
+            "RQ": results.get("RQ", 0.0),
         }
 
         # ==============================
@@ -318,7 +279,7 @@ class VO2MaxTest:
         # (used during PDF generation)
         # ==============================
         st.session_state.client_data = client_info_for_pdf
-        st.session_state.vo2_data = test_results_for_pdf
+        st.session_state.rmr_data = test_results_for_pdf
 
         # Return structured data
         return client_info_for_pdf, test_results_for_pdf
@@ -367,12 +328,13 @@ class VO2MaxTest:
         return False
 
     def report_builder(self):
-        """Main function for building a VO2 Max report interactively inside Streamlit."""
+        """Main function for building a report interactively inside Streamlit."""
 
         # Setup
         df = st.session_state.get("df")
         plot_functions = self.get_plot_functions()
         reports_col = self.db["reports"]
+
 
         # Initialize session state for plots if not already present
         if 'plot_comments' not in st.session_state:
@@ -391,7 +353,8 @@ class VO2MaxTest:
             st.markdown(f"### {title}")
 
             # Plot the figure
-            fig, ax = plt.subplots(figsize=(6, 3.5))
+            height = 1.5 if "RQ" in title or "REE" in title else 4
+            fig, ax = plt.subplots(figsize = (6,height))
             func(ax, df)
             fig.tight_layout()
             st.pyplot(fig, use_container_width=False)

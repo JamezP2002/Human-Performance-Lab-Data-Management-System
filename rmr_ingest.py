@@ -74,7 +74,7 @@ class RMRParser:
             max_cols = 11
             cols = list(range(max_cols))
             table = df.iloc[start_row:end_row, cols]
-            table.columns = ["Time", "VO2 STPD", "VO2/kg STPD", "Mets", "VCO2 STPD", "VE uncor.", "RQ", "FEO2", "FECO2", "REE", "RMR"]
+            table.columns = ["Time", "VO2 STPD", "VO2/kg STPD", "Mets", "VCO2 STPD", "VE uncor.", "RQ", "FEO2", "FECO2", "HR", "REE"]
 
             tabular_data = table.to_dict(orient="records")
 
@@ -83,7 +83,7 @@ class RMRParser:
 
         if records_after_10:
             # sum up the RMR column, then divide by how many rows we have
-            total_rmr = sum(row["RMR"] for row in records_after_10)
+            total_rmr = sum(row["REE"] for row in records_after_10)
             total_vco2 = sum(row["VCO2 STPD"] for row in records_after_10)
             total_vo2 = sum(row["VO2 STPD"] for row in records_after_10)
             avg_rmr = total_rmr / len(records_after_10)

@@ -9,8 +9,8 @@ from vo2max_test import VO2MaxTest
 from rmr_test import RMRTest
 
 TEST_CLASS_MAP = {
-    "VO2_MAX": VO2MaxTest,
-    "RMR":      RMRTest,
+    "VO2 MAX": VO2MaxTest,
+    "RMR": RMRTest,
 }
 
 ###################################
@@ -33,14 +33,14 @@ client = MongoClient(database_credentials)
 db = client['performance-lab']
 users_col = db['users']
 reports_col = db['reports']
-vo2_col = db['vo2max']  # Collection for VO2 Max tests (expandable for other test types)
+tests_collection = db['tests']  
 
 # ===============================
 # Session State Initialization
 # ===============================
 
 # These keys help maintain state across page interactions
-for key in ['test_section', 'report_builder', 'reviewing', 'selected_test', 'selected_client', 'plot_comments', 'plot_includes']:
+for key in ['test_section', 'report_builder', 'reviewing', 'selected_test', 'selected_client']:
     if key not in st.session_state:
         st.session_state[key] = False if key in ['test_section', 'report_builder', 'reviewing'] else {}
 
@@ -79,27 +79,37 @@ if not st.session_state['report_builder'] and not st.session_state['reviewing']:
                     # ===============================
                     # Step 2: Test Selection
                     # ===============================
-                    tests = list(vo2_col.find({"user_id": selected_client["_id"]}))
+                    tests = list(tests_collection.find({"user_id": selected_client["_id"]}))
 
                     def format_test_entry(t):
-                        test_type = t.get('test_type', 'vo2max').upper()
-                        date_obj = t.get('VO2 Max Report Info', {}).get('Report Info', {}).get('Date', {})
+                        test_name = t.get("test_type", "").replace("_", " ")
+                        test_type = t.get("test_type", "").replace("_", " ").upper()
+                        #print(test_name)
+                        
+                        # Format test date
+                        date_obj = t.get(f'{test_name} Report Info', {}).get('Report Info', {}).get('Date', {})
                         if isinstance(date_obj, dict):
                             year = str(date_obj.get("Year", ""))
-                            month = str(date_obj.get("Month", "")).zfill(2)  # Zero-pad if numeric
+                            month = str(date_obj.get("Month", "")).zfill(2)
                             day = str(date_obj.get("Day", "")).zfill(2)
-                            # Optional: convert month names to numbers
                             month_map = {
                                 "January": "01", "February": "02", "March": "03", "April": "04",
                                 "May": "05", "June": "06", "July": "07", "August": "08",
                                 "September": "09", "October": "10", "November": "11", "December": "12"
                             }
-                            month = month_map.get(month, month)  # Convert if needed
+                            month = month_map.get(month, month)
                             formatted_date = f"{month}/{day}/{year}"
                         else:
                             formatted_date = "Unknown Date"
 
-                        return f"{test_type} – Test Date: {formatted_date}"
+                        # Format upload date
+                        upload_date = t.get('Upload Date')
+                        if upload_date:
+                            upload_date = pd.to_datetime(upload_date).strftime("%m/%d/%Y")
+                        else:
+                            upload_date = "N/A"
+
+                        return f"{test_type} – Test Date: {formatted_date} - Uploaded: {upload_date}"
 
                     if tests:
                         selected_test = st.selectbox("Select Test", tests, format_func=format_test_entry)
@@ -171,7 +181,10 @@ if st.session_state['report_builder']:
 
     # Retrieve the selected test and initialize the appropriate test class
     test_data = st.session_state.selected_test
-    test = VO2MaxTest()  # Eventually can be dynamic based on test_type
+    raw_type = test_data.get("test_type", "").upper()
+    #print(f"Selected test type: {raw_type}")
+    TestClass = TEST_CLASS_MAP.get(raw_type) 
+    test = TestClass()
     selection = test.parse_test(test_data)
 
     if selection:
@@ -189,7 +202,7 @@ if st.session_state['report_builder']:
         # ===============================
         # client Information Display
         # ===============================
-        st.subheader("client Info")
+        st.subheader("Client Info")
         col1, col2 = st.columns(2)
         with col1:
             st.markdown(f"**Name:** {client_info.get('Name', 'N/A')}")
@@ -198,35 +211,73 @@ if st.session_state['report_builder']:
         with col2:
             st.markdown(f"**Weight:** {client_info.get('Weight', 'N/A'):.1f} lb")
             st.markdown(f"**Height:** {client_info.get('Height', 'N/A'):.1f} in")
+        
+        # VO2 Max Test Report
+        if raw_type == "VO2 MAX":
+            # ===============================
+            # Test Protocol Section
+            # ===============================
+            st.subheader("Test Protocol")
+            col3, col4 = st.columns(2)
+            with col3:
+                st.markdown(f"**Test Degree:** {test_protocol.get('Test Degree', 'N/A')}")
+            with col4:
+                st.markdown(f"**Exercise Device:** {test_protocol.get('Exercise Device', 'N/A')}")
 
-        # ===============================
-        # Test Protocol Section
-        # ===============================
-        st.subheader("Test Protocol")
-        col3, col4 = st.columns(2)
-        with col3:
-            st.markdown(f"**Test Degree:** {test_protocol.get('Test Degree', 'N/A')}")
-            st.markdown(f"**Exercise Device:** {test_protocol.get('Exercise Device', 'N/A')}")
+            # ===============================
+            # Results Section
+            # ===============================
+            st.subheader("Results")
+            col5, col6 = st.columns(2)
+            with col5:
+                st.markdown(f"**Max VO₂:** {results.get('Max VO2', 'N/A'):.2f} ML/min")
+            with col6:
+                st.markdown(f"**VO₂max Percentile:** {results.get('VO2max Percentile', 'N/A')}")
 
-        # ===============================
-        # Results Section
-        # ===============================
-        st.subheader("Results")
-        col5, col6 = st.columns(2)
-        with col5:
-            st.markdown(f"**Max VO₂:** {results.get('Max VO2', 'N/A'):.2f} ML/min")
-        with col6:
-            st.markdown(f"**VO₂max Percentile:** {results.get('VO2max Percentile', 'N/A')}")
+            # Optional: Display full test data as raw dataframe
+            if st.checkbox("Show raw tabular data"):
+                st.dataframe(df)
 
-        # Optional: Display full test data as raw dataframe
-        if st.checkbox("Show raw tabular data"):
-            st.dataframe(df)
+            # ===============================
+            # Dynamic Plots & Comment Boxes
+            # ===============================
+            st.markdown(f"---")
+            plots = test.report_builder()  # Generates visual plots + comment boxes
 
-        # ===============================
-        # Dynamic Plots & Comment Boxes
-        # ===============================
-        st.markdown(f"---")
-        plots = test.report_builder()  # Generates visual plots + comment boxes
+        # RMR Test Report
+        elif raw_type == "RMR":
+            # ===============================
+            # Test Protocol Section
+            # ===============================
+            st.subheader("Test Protocol")
+            col3, col4 = st.columns(2)
+            with col3:
+                st.markdown(f"**Test Degree:** {test_protocol.get('Test Degree', 'N/A')}")
+            with col4:
+                st.markdown(f"**Exercise Device:** {test_protocol.get('Exercise Device', 'N/A')}")
+
+            # ===============================
+            # Results Section
+            # ===============================
+            st.subheader("Results")
+            col5, col6, col7 = st.columns(3)
+            with col5:
+                st.markdown(f"**Avg RMR:** {results.get('Avg RMR', 'N/A')} kcal/day")
+            with col6:
+                st.markdown(f"**Predicted RMR:** {results.get('Predicted RMR', 'N/A')} kcal/day")
+            with col7:
+                st.markdown(f"**RQ:** {results.get('RQ', 'N/A')} ")
+            
+
+            # Optional: Display full test data as raw dataframe
+            if st.checkbox("Show raw tabular data"):
+                st.dataframe(df)
+
+            # ===============================
+            # Dynamic Plots & Comment Boxes
+            # ===============================
+            st.markdown(f"---")
+            plots = test.report_builder()  # Generates visual plots + comment boxes
 
         # ===============================
         # Navigation Button
@@ -236,22 +287,3 @@ if st.session_state['report_builder']:
             for key in ['report_builder', 'report_loaded', 'selected_test', 'selected_client']:
                 st.session_state[key] = None if key.startswith('selected') else False
             st.rerun()
-
-
-# ===============================
-# Review Report Section
-# ===============================
-if st.session_state['reviewing']:
-    st.subheader("📊 Review Report")
-    st.write(f"Reviewing report for {st.session_state.selected_client['Name']}")
-
-    # Initialize the appropriate test class for review (VO2Max only for now)
-    test = VO2MaxTest()
-    test.review_report(test_data=st.session_state.selected_test)
-
-    # Button to go back to selection screen
-    if st.button("Back to client Select"):
-        st.session_state.reviewing = False
-        st.session_state.selected_test = None
-        st.session_state.selected_client = None
-        st.rerun()

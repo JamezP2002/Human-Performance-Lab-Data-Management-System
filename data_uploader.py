@@ -17,6 +17,7 @@ db = client['performance-lab']
 
 # Users and Tests collections
 users_collection = db['users']
+tests_collection = db['tests']
 
 # import parser classes
 from vo2max_ingest import VO2MaxParser 
@@ -58,14 +59,14 @@ if uploaded_file:
         if parse_param == rmr_params:
             st.success("RMR data detected.")
             parser = RMRParser(df)
-            tests_collection = db['rmr'] 
             report_name = "RMR Report Info"
+            report_type = "RMR"
         elif parse_param == vo2max_params:
             st.success("VO2 Max data detected.")
             #st.write("Processing VO2 Max data...")
             parser = VO2MaxParser(df)
-            tests_collection = db['vo2max']
             report_name = "VO2 Max Report Info"
+            report_type = "VO2 Max"
         else:
             st.error("Unsupported data type. Please upload a valid RMR or VO2 Max data file.")
 
@@ -110,6 +111,8 @@ if uploaded_file:
 
         test_document = {
             "user_id": user_id,
+            "test_type": report_type,
+            "Upload Date": datetime.utcnow(),
             f"{report_name}": {
                 "Report Info":   report_info,
                 "Client Info":   client_info,
