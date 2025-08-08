@@ -22,8 +22,7 @@ class RMRTest:
         self.user_id = user_id
 
         # Load environment variables (.env)
-        dotenv_path = os.path.abspath(os.path.join("capstone work/.env"))
-        load_dotenv(dotenv_path)
+        load_dotenv()
 
         # Setup MongoDB connection
         database_credentials = os.getenv("database_credentials")
@@ -36,7 +35,6 @@ class RMRTest:
         # Setup AWS S3 connection for storing PDFs
         aws_access_key_id = os.getenv("aws_access_key_id")
         aws_secret_access_key = os.getenv("aws_secret_access_key")
-
         self.s3_client = boto3.client(
             's3',
             aws_access_key_id=aws_access_key_id,

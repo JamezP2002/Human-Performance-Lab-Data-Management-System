@@ -22,8 +22,7 @@ class VO2MaxTest:
         self.user_id = user_id
 
         # Load environment variables (.env)
-        dotenv_path = os.path.abspath(os.path.join("capstone work/.env"))
-        load_dotenv(dotenv_path)
+        load_dotenv()
 
         # Setup MongoDB connection
         database_credentials = os.getenv("database_credentials")
