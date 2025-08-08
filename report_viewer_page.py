@@ -62,7 +62,7 @@ with st.expander("🔍 Search Clients", expanded=True):
                 test_reports = list(reports_col.find({"user_id": selected_client["_id"]}))
 
                 def format_report_entry(r):
-                    test_type = r.get("test_type", "vo2max").upper()
+                    test_type = r.get("test_type").upper()
 
                     # Format test date
                     date = r.get("test_date", {})
@@ -115,9 +115,9 @@ with st.expander("🔍 Search Clients", expanded=True):
                         else:
                             test_date_str = "unknown-date"
 
-                        test_type = selected_report.get("test_type", "vo2max").lower()
+                        test_type = selected_report.get("test_type").upper()
                         clean_name = selected_client['Name'].replace(',', '').replace(' ', '_')
-                        pdf_filename = f"test_report_{clean_name}_{test_date_str}.pdf"
+                        pdf_filename = f"{test_type}_report_{clean_name}_{test_date_str}.pdf"
                         s3_key = f"reports/{pdf_filename}"
 
                         st.subheader("📋 Report")

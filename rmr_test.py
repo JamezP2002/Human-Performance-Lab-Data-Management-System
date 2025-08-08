@@ -69,68 +69,6 @@ class RMRTest:
             st.error(f"Failed to parse test document: {e}")
             return None
 
-    def draw_rq_bullet(self, rq_value, ax):
-
-        """
-        Draw a bullet gauge for Respiratory Quotient (RQ).
-        Zones (default matplotlib colors):
-        • <0.63  (“Check”)
-        • 0.63–0.78  (“High”)
-        • 0.78–0.93  (“Normal”)
-        • 0.93–1.00  (“Low”)
-        • >1.00  (“Check”)
-        """
-        # Define breakpoints
-        min_val, zone1, zone2, zone3, max_val = 0.50, 0.63, 0.78, 0.93, 1.00
-
-        # Draw each zone as a horizontal bar
-        ax.barh(0, zone1 - min_val, left=min_val, height=0.4)
-        ax.barh(0, zone2 - zone1, left=zone1, height=0.4)
-        ax.barh(0, zone3 - zone2, left=zone2, height=0.4)
-        ax.barh(0, max_val - zone3, left=zone3, height=0.4)
-
-        # Draw the “pointer”
-        ax.plot([rq_value], [0], marker='v', markersize=12)
-
-        # Clean up axes
-        ax.set_xlim(min_val, max_val)
-        ax.set_yticks([])
-        ax.set_xlabel("Respiratory Quotient (RQ)")
-        ax.set_title("Metabolic Efficiency (RQ)")
-        ax.tick_params(axis='x', which='both', length=0)
-    
-    def plot_ree_bullet(self, ax):
-        """
-        Draw a bullet gauge for Resting Energy Expenditure (REE).
-        Expects in `self.results["REE"]` your measured kcal/day,
-        and `self.results["LLN"]`, `self.results["ULN"]` the normative bounds.
-        """
-
-        # pull values out of the parsed results
-        ree = getattr(self, "results", {}).get("Avg RMR", 0)
-
-        lln = 1000
-        uln = 2082
-
-        # define the chart span
-        min_val = 0
-        max_val = uln * 1.3  # give some padding beyond ULN
-
-        # draw the slow, normal, fast zones
-        ax.barh(0, lln - min_val,   left=min_val, height=0.4, label="Slow")
-        ax.barh(0, uln - lln,       left=lln,    height=0.4, label="Normal")
-        ax.barh(0, max_val - uln,   left=uln,    height=0.4, label="Fast")
-
-        # draw the pointer
-        ax.plot([ree], [0], marker="v", markersize=12, color="black")
-
-        # formatting
-        ax.set_xlim(min_val, max_val)
-        ax.set_yticks([])
-        ax.set_xlabel("REE (kcal/day)")
-        ax.set_title("Resting Energy Expenditure (REE)")
-        #ax.legend(loc="lower right")
-
     def get_plot_functions(self):
         """Return list of plotting functions for different test metrics."""
         df = st.session_state.get("df")
@@ -154,6 +92,7 @@ class RMRTest:
                 ax.plot(x, p(x), color='red', linestyle='--', label="Trend Line")
                 ax.legend()
 
+        # Bullet Gauge for Respiratory Quotient (RQ)
         def draw_rq_bullet(ax, df):
 
             rq_value = self.results.get("RQ", 0.0)
@@ -186,6 +125,7 @@ class RMRTest:
             ax.set_title("Metabolic Efficiency (RQ)")
             ax.tick_params(axis='x', which='both', length=0)
     
+        # Bullet Gauge for Resting Energy Expenditure (REE)
         def plot_ree_bullet(ax, df):
             """
             Draw a bullet gauge for Resting Energy Expenditure (REE).
@@ -258,15 +198,7 @@ class RMRTest:
         # Format test results information
         # ==============================
 
-        # Guess the sport 
-        sport = ""
-        if test_protocol.get("Exercise Device") == "Rest":
-            sport = "Nothing"
-        else:
-            sport = "Unknown"
-
         test_results_for_pdf = {
-            "Sport": sport,
             "Avg RMR": results.get("Avg RMR", 0.0),
             "Predicted RMR": results.get("Predicted RMR", 0.0),
             "RQ": results.get("RQ", 0.0),
@@ -453,7 +385,7 @@ class RMRTest:
                 })
 
             # Also store the original test date in MongoDB
-            report_info = st.session_state.selected_test.get("VO2 Max Report Info", {}).get("Report Info", {})
+            report_info = st.session_state.selected_test.get("RMR Report Info", {}).get("Report Info", {})
             test_date = report_info.get("Date", {})
 
             reports_col.update_one(
@@ -462,10 +394,11 @@ class RMRTest:
                     "$set": {
                         "user_id": user_id,
                         "test_id": test_id,
+                        "test_type": "RMR",
                         "summary": summary_text,
                         "plots": plots_data,
                         "last_updated": datetime.utcnow(),  # Date of report generation
-                        "test_date": test_date               # Date of original test
+                        "test_date": test_date # Date of original test
                     }
                 },
                 upsert=True
@@ -485,7 +418,7 @@ class RMRTest:
         df = st.session_state.get("df")
         plot_functions = self.get_plot_functions()
         client_data = st.session_state.get("client_data", {})
-        vo2_data = st.session_state.get("vo2_data", {})
+        report_data = st.session_state.get("data", {})
         plot_comments = st.session_state.get("plot_comments", {})
         initial_report_text = st.session_state.get("initial_report_text", "")
 
@@ -496,7 +429,7 @@ class RMRTest:
         name = client_data.get("Name", "Unknown")
 
         # Extract test date for filename
-        date_dict = st.session_state.selected_test.get("VO2 Max Report Info", {}).get("Report Info", {}).get("Date", {})
+        date_dict = st.session_state.selected_test.get("RMR Report Info", {}).get("Report Info", {}).get("Date", {})
         if isinstance(date_dict, dict):
             year = str(date_dict.get("Year", ""))
             month = str(date_dict.get("Month", "")).zfill(2)
@@ -514,7 +447,7 @@ class RMRTest:
             test_date_str = "unknown-date"
 
         # Final filename
-        pdf_path = f"test_report_{name.replace(',', '').replace(' ', '_')}_{test_date_str}.pdf"
+        pdf_path = f"RMR_report_{name.replace(',', '').replace(' ', '_')}_{test_date_str}.pdf"
 
         pdf_buffers = []
 
@@ -617,16 +550,16 @@ class RMRTest:
         story.extend([client_table, FrameBreak()])
 
         # Test Results Table
-        vo2_table_data = [["Test Results", ""]] + [[k, str(v)] for k, v in vo2_data.items()]
-        vo2_table = Table(vo2_table_data, colWidths=[100, 150])
-        vo2_table.setStyle([
+        report_table_data = [["Test Results", ""]] + [[k, str(v)] for k, v in report_data.items()]
+        report_table = Table(report_table_data, colWidths=[100, 150])
+        report_table.setStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
             ("ALIGN", (0, 0), (-1, 0), "CENTER"),
             ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ])
-        story.append(vo2_table)
+        story.append(report_table)
         story.append(FrameBreak())
         story.append(Spacer(1, 110))
 

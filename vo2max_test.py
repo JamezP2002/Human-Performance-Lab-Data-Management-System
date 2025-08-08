@@ -500,6 +500,7 @@ class VO2MaxTest:
                     "$set": {
                         "user_id": user_id,
                         "test_id": test_id,
+                        "test_type": "VO2Max",
                         "summary": summary_text,
                         "plots": plots_data,
                         "last_updated": datetime.utcnow(),  # Date of report generation
@@ -552,7 +553,7 @@ class VO2MaxTest:
             test_date_str = "unknown-date"
 
         # Final filename
-        pdf_path = f"test_report_{name.replace(',', '').replace(' ', '_')}_{test_date_str}.pdf"
+        pdf_path = f"VO2MAX_report_{name.replace(',', '').replace(' ', '_')}_{test_date_str}.pdf"
 
         pdf_buffers = []
 
