@@ -3,6 +3,8 @@ import streamlit as st
 import os
 from dotenv import load_dotenv
 import pandas as pd
+import boto3
+from streamlit_pdf_viewer import pdf_viewer
 
 # loading tests
 from vo2max_test import VO2MaxTest
@@ -27,6 +29,9 @@ choose a test, and either generate a new report or edit an existing one."""
 # Load environment variables (MongoDB URI, etc.)
 load_dotenv()
 database_credentials = os.getenv("database_credentials")
+aws_access_key = os.getenv("aws_access_key_id")
+aws_secret_key = os.getenv("aws_secret_access_key")
+bucket_name = "champ-hpl-bucket"
 
 # Connect to MongoDB
 client = MongoClient(database_credentials)
@@ -34,6 +39,12 @@ db = client['performance-lab']
 users_col = db['users']
 reports_col = db['reports']
 tests_collection = db['tests']  
+
+# S3 setup
+s3 = boto3.client("s3",
+    aws_access_key_id=aws_access_key,
+    aws_secret_access_key=aws_secret_key
+)
 
 # ===============================
 # Session State Initialization
@@ -74,7 +85,7 @@ if not st.session_state['report_builder'] and not st.session_state['reviewing']:
                         st.markdown(f"**Sex:** {selected_client.get('Sex')}")
                     with col2:
                         st.markdown(f"**Height:** {selected_client.get('Height', 'N/A')} in")
-                        st.markdown(f"**Weight:** {selected_client.get('Weight', 'N/A')} lb")
+                        st.markdown(f"**Weight:** { selected_client.get('Weight', 'N/A')} lb")
 
                     # ===============================
                     # Step 2: Test Selection
@@ -169,6 +180,45 @@ if not st.session_state['report_builder'] and not st.session_state['reviewing']:
                                     st.rerun()
                             else:
                                 st.info("No report found for this client for this test.")
+
+# Futrue: Adding pdf viewer for existing reports
+
+                        # if report_exists:
+                        #     st.markdown("---")
+                        
+                        #     # Generate PDF file name for S3 retrieval
+                        #     date_obj = report_exists.get("test_date", {})
+                        #     if isinstance(date_obj, dict):
+                        #         year = str(date_obj.get("Year", ""))
+                        #         month = str(date_obj.get("Month", "")).zfill(2)
+                        #         day = str(date_obj.get("Day", "")).zfill(2)
+                        #         month_map = {
+                        #             "January": "01", "February": "02", "March": "03", "April": "04",
+                        #             "May": "05", "June": "06", "July": "07", "August": "08",
+                        #             "September": "09", "October": "10", "November": "11", "December": "12"
+                        #         }
+                        #         month = month_map.get(month, month)
+                        #         test_date_str = f"{year}-{month}-{day}"
+                        #     else:
+                        #         test_date_str = "unknown-date"
+
+                        #     test_type = report_exists.get("test_type", "vo2max").lower()
+                        #     clean_name = selected_client['Name'].replace(',', '').replace(' ', '_')
+                        #     pdf_filename = f"test_report_{clean_name}_{test_date_str}.pdf"
+                        #     s3_key = f"reports/{pdf_filename}"
+
+                        #     st.subheader("📋 Report")
+
+                        #     # Getting the PDF from S3 to view it
+                        #     url = s3.generate_presigned_url(
+                        #         "get_object",
+                        #         Params={"Bucket": bucket_name, "Key": s3_key},
+                        #         ExpiresIn=600
+                        #     )
+                        #     st.markdown(f"""
+                        #         <iframe src="{url}" width="100%" height="800px" type="application/pdf"></iframe>
+                        #         """, unsafe_allow_html=True)
+
             else:
                 st.warning("No matching client found.")
 
