@@ -5,13 +5,12 @@ import matplotlib.pyplot as plt
 import os
 from dotenv import load_dotenv, find_dotenv
 import boto3
-from reportlab.platypus import (BaseDocTemplate, Frame, PageTemplate, FrameBreak,
-                                Paragraph, Spacer, Table, TableStyle, Image, NextPageTemplate,
-                                PageBreak)
-from reportlab.lib.pagesizes import LETTER
+from reportlab.lib.pagesizes import LETTER, landscape
+from reportlab.pdfgen import canvas
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
-from reportlab.platypus import Image as RLImage
+from reportlab.lib.units import inch
 import io
 import numpy as np
 from datetime import datetime
@@ -79,9 +78,9 @@ class RMRTest:
             ax.plot(df["Time"], df["REE"], label="RMR (kcal/day)", color='blue')
             ax.set_xlabel("Time (minutes)")
             ax.set_ylabel("RMR (kcal/day)")
-            ax.set_title("RMR Over Time")
+            ax.set_title("RMR Over Time", fontsize=7, fontweight='bold')
             ax.grid(True)
-            ax.legend()
+            ax.legend(loc="upper right", bbox_to_anchor=(1.3, 1), fontsize='small')
 
             # Add trend line after 10 minutes to show RMR stability
             if len(df) > 10:
@@ -90,12 +89,19 @@ class RMRTest:
                 z = np.polyfit(x, y, 1)
                 p = np.poly1d(z)
                 ax.plot(x, p(x), color='red', linestyle='--', label="Trend Line")
-                ax.legend()
+                ax.legend(loc="upper right", bbox_to_anchor=(1.3, 1), fontsize='small')
 
         # Bullet Gauge for Respiratory Quotient (RQ)
         def draw_rq_bullet(ax, df):
 
             rq_value = self.results.get("RQ", 0.0)
+
+            colors_rq = [
+                "#FF4C4C",  # red (Check)
+                "#FFA500",  # orange (High)
+                "#4CAF50",  # green (Normal)
+                "#1E90FF"   # blue (Low)
+            ]
 
             """
             Draw a bullet gauge for Respiratory Quotient (RQ).
@@ -110,10 +116,10 @@ class RMRTest:
             min_val, zone1, zone2, zone3, max_val = 0.50, 0.63, 0.78, 0.93, 1.00
 
             # Draw each zone as a horizontal bar
-            ax.barh(0, zone1 - min_val, left=min_val, height=0.4)
-            ax.barh(0, zone2 - zone1, left=zone1, height=0.4)
-            ax.barh(0, zone3 - zone2, left=zone2, height=0.4)
-            ax.barh(0, max_val - zone3, left=zone3, height=0.4)
+            ax.barh(0, zone1 - min_val, left=min_val, height=0.4, color=colors_rq[0], label="Check")
+            ax.barh(0, zone2 - zone1, left=zone1, height=0.4, color=colors_rq[1], label="High")
+            ax.barh(0, zone3 - zone2, left=zone2, height=0.4,  color=colors_rq[2], label="Normal")
+            ax.barh(0, max_val - zone3, left=zone3, height=0.4, color=colors_rq[3], label="Low")
 
             # Draw the “pointer”
             ax.plot([rq_value], [0], marker='v', markersize=12)
@@ -124,6 +130,7 @@ class RMRTest:
             ax.set_xlabel("Respiratory Quotient (RQ)")
             ax.set_title("Metabolic Efficiency (RQ)")
             ax.tick_params(axis='x', which='both', length=0)
+            ax.legend(loc="upper right", bbox_to_anchor=(1.2, 1), fontsize='small')
     
         # Bullet Gauge for Resting Energy Expenditure (REE)
         def plot_ree_bullet(ax, df):
@@ -143,10 +150,15 @@ class RMRTest:
             min_val = 0
             max_val = uln * 1.3  # give some padding beyond ULN
 
+            # Custom colors
+            slow_color = "#FF4C4C"   # red
+            normal_color = "#4CAF50" # green
+            fast_color = "#1E90FF"   # blue
+
             # draw the slow, normal, fast zones
-            ax.barh(0, lln - min_val,   left=min_val, height=0.4, label="Slow")
-            ax.barh(0, uln - lln,       left=lln,    height=0.4, label="Normal")
-            ax.barh(0, max_val - uln,   left=uln,    height=0.4, label="Fast")
+            ax.barh(0, lln - min_val,   left=min_val, height=0.4, label="Slow", color=slow_color)
+            ax.barh(0, uln - lln,       left=lln,    height=0.4, label="Normal", color=normal_color)
+            ax.barh(0, max_val - uln,   left=uln,    height=0.4, label="Fast", color=fast_color)
 
             # draw the pointer
             ax.plot([ree], [0], marker="v", markersize=12, color="black")
@@ -156,12 +168,58 @@ class RMRTest:
             ax.set_yticks([])
             ax.set_xlabel("REE (kcal/day)")
             ax.set_title("Resting Energy Expenditure (REE)")
-            #ax.legend(loc="lower right")
-        
+            ax.legend(loc="upper right", bbox_to_anchor=(1.2, 1), fontsize='small')
+
+        # TDEE pie chart
+        i = 0  
+        def plot_tdee_pie(ax, df, activity_level = None):
+            # Pull BMR (or RMR) from your calculated results
+            bmr = st.session_state.get("rmr_data", {}).get("Avg RMR", 0)
+
+            if activity_level is None:
+                activity_level = st.session_state.get("activity_level", "moderate")
+
+            # Simple presets for EAT/NEAT (kcal/day).
+            presets = {
+                "sedentary":   {"eat": 100, "neat": 200},
+                "light":       {"eat": 200, "neat": 300},
+                "moderate":    {"eat": 300, "neat": 400},
+                "active":      {"eat": 450, "neat": 550},
+                "very active": {"eat": 600, "neat": 700},
+            }
+            eat = presets[activity_level]["eat"]
+            neat = presets[activity_level]["neat"]
+
+            # TEF as exact 10% of TDEE
+            tef_pct = 0.10
+            base = bmr + eat + neat
+            tdee_total = base / (1 - tef_pct) if base > 0 else 0.0
+            tef = tef_pct * tdee_total
+
+            labels = ["BMR", "TEF", "EAT", "NEAT"]
+            sizes  = [bmr, tef, eat, neat]
+            colors = ['#66b3ff', '#ff9999', '#99ff99', '#ffcc99']
+
+            def fmt(pct):
+                kcal = pct * tdee_total / 100.0
+                return f"{pct:.1f}%\n({kcal:.0f} kcal)"
+
+            wedges, texts, autotexts = ax.pie(
+                sizes,
+                labels=labels,
+                autopct=fmt,
+                startangle=90,
+                colors=colors,
+                textprops={'fontsize': 8}
+            )
+            ax.axis('equal')
+            ax.set_title("TDEE Breakdown", fontsize=16, fontweight="bold")
+
         plot_functions = [
             ("REE Bullet Gauge", plot_ree_bullet),
             ("RQ Bullet Gauge", draw_rq_bullet),
-            ("RMR Over Time", plot_rmr_over_time)
+            ("RMR Over Time", plot_rmr_over_time),
+            ("TDEE Breakdown", plot_tdee_pie)
         ]
 
         return plot_functions       
@@ -460,9 +518,10 @@ class RMRTest:
             if not include_flags.get(plot_name, True):
                 continue  # Skip plots that user chose not to include
 
-            fig, ax = plt.subplots(figsize=(5.5, 3.5))
+            height = 1.5 if "RQ" in plot_name or "REE" in plot_name or "RMR" in plot_name else 6
+            fig, ax = plt.subplots(figsize=(6, height))
             func(ax, df)
-            ax.set_title(plot_name, fontsize=15, fontweight='bold')
+            ax.set_title(plot_name, fontsize=15 if "RQ" in plot_name or "REE" in plot_name or "TDEE" in plot_name else 8 , fontweight='bold')
             plt.tight_layout()
 
             buf = io.BytesIO()
@@ -471,144 +530,202 @@ class RMRTest:
             pdf_buffers.append((plot_name, buf, plot_comments.get(plot_name, "")))
             plt.close(fig)
 
-        # ==============================
-        # Setup PDF Document Template
-        # ==============================
+        DEBUG = False
 
-        from reportlab.platypus import BaseDocTemplate, Frame, PageTemplate, FrameBreak, PageBreak, NextPageTemplate
+        doc = SimpleDocTemplate(
+            pdf_path,
+            pagesize=landscape(LETTER),  
+            leftMargin=20,
+            rightMargin=20,
+            topMargin=0,
+            bottomMargin=30
+        )
 
-        doc = BaseDocTemplate(pdf_path, pagesize=LETTER)
         styles = getSampleStyleSheet()
-        width, height = LETTER
-
-        # Page layout settings
-        doc.topMargin = 5
-        doc.bottomMargin = 140
-        doc.leftMargin = 72
-        doc.rightMargin = 72
-        header_height = 180
-        body_height = height - doc.topMargin - doc.bottomMargin - header_height
-
-        # Layout for the plot/comment pages
-        plot_left_margin = 30
-        plot_right_margin = 30
-        usable_width = width - plot_left_margin - plot_right_margin
-        half_width = (usable_width - 12) / 2  # 6pt gutter between plot frames
-
-        # Define page templates
-        doc.addPageTemplates([
-            PageTemplate(
-                id='ContentPage',
-                frames=[
-                    Frame(doc.leftMargin, doc.bottomMargin + body_height, doc.width, header_height, id='header'),
-                    Frame(doc.leftMargin, doc.bottomMargin, doc.width / 2 - 6, body_height, id='left'),
-                    Frame(doc.leftMargin + doc.width / 2 + 6, doc.bottomMargin, doc.width / 2 - 6, body_height, id='right'),
-                    Frame(doc.leftMargin, doc.bottomMargin, doc.width, body_height, id='bottom')
-                ]
-            ),
-            PageTemplate(
-                id='PlotPage',
-                frames=[
-                    Frame(plot_left_margin, height - 350, half_width, 300, id='plot_left'),
-                    Frame(plot_left_margin + half_width + 12, height - 350, half_width, 300, id='plot_right'),
-                    Frame(plot_left_margin, doc.bottomMargin, usable_width, 350, id='comments')
-                ]
-            )
-        ])
-
-        # ==============================
-        # Build Story (Content of PDF)
-        # ==============================
-
         story = []
 
-        # Add Logo
+        # === Add Logo ===
+
+        story.append(Spacer(1, -20))
         logo_path = "graphics/CHAMPlogo.png"
         if logo_path and os.path.exists(logo_path):
             logo = Image(logo_path, width=100, height=100)
-            logo.hAlign = "CENTER"
-            story.append(logo)
+            # put logo inside a 1x1 table so we can draw a border around it
+            logo_table = Table([[logo]], colWidths=[100], rowHeights=[100])
+            logo_table.setStyle([
+                ("VALIGN", (0,0), (-1,-1), "TOP"),
+                ("ALIGN",  (0,0), (-1,-1), "CENTER"),
+                *([("BOX", (0,0), (-1,-1), 1, colors.blue)] if DEBUG else []),
+                # helpful to see padding too:
+                # ("LEFTPADDING",(0,0),(-1,-1),0), ("RIGHTPADDING",(0,0),(-1,-1),0),
+                # ("TOPPADDING",(0,0),(-1,-1),0),  ("BOTTOMPADDING",(0,0),(-1,-1),0),
+            ])
+            story.append(logo_table)
+        else:
+            st.warning("Logo file not found, skipping logo in PDF.")
 
-        # Title + School
-        story.extend([
-            Paragraph("CHAMP Human Performance Lab Report", styles["Title"]),
-            Paragraph('<para align="center">Southern Connecticut State University</para>', styles["Heading2"]),
-            Spacer(1, 10),
-            FrameBreak()
+        story.append(Spacer(1, -20))
+        # === Title + School (boxed) ===
+        title_para = Paragraph("CHAMP Human Performance RMR Report", styles["Title"])
+        subtitle_para = Paragraph('<para align="center">Southern Connecticut State University</para>', styles["Heading2"])
+
+        title_block = Table([[title_para], [subtitle_para]], colWidths=[doc.width])
+        title_block.setStyle([
+            ("ALIGN", (0,0), (-1,-1), "CENTER"),
+            ("VALIGN",(0,0), (-1,-1), "MIDDLE"),
+            ("TOPPADDING", (0,0), (-1,-1), 4),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 4),
+            *([("BOX", (0,0), (-1,-1), 1, colors.green)] if DEBUG else []),
         ])
+        story.append(title_block)
+        story.append(Spacer(1, 5))
 
-        # Athlete Info Table
-        client_table_data = [["Client Info", ""]] + [[k, str(v)] for k, v in client_data.items()]
-        client_table = Table(client_table_data, colWidths=[100, 120])
-        client_table.setStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.lightblue),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("ALIGN", (0, 0), (-1, 0), "CENTER"),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
+        # Two Tables for Client Info and Test Results
+        client_info = st.session_state.get("client_data", {})
+        test_results = st.session_state.get("rmr_data", {})
+        if not client_info or not test_results:
+            st.error("Client data or test results are missing.")
+            return
+        
+        # === Client Info Table ===
+        client_info_data = [
+            ["Client Information", ""],
+            ["Name", client_info.get("Name", "N/A")],
+            ["Age", client_info.get("Age", "N/A")],
+            ["Sex", client_info.get("Sex", "N/A")],
+            ["Height", client_info.get("Height", "N/A")],
+            ["Weight", client_info.get("Weight", "N/A")]
+        ]
+
+        client_info_table = Table(client_info_data, colWidths=[100, 140])
+        client_info_table.setStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E6F2FF")),  # light blue header
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#0077CC")),  # dark blue text
+            ("ALIGN", (0, 0), (-1, -1), "LEFT"),
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("GRID", (0, 0), (-1, -1), 1, colors.black),
         ])
-        story.extend([client_table, FrameBreak()])
+        client_info_table.hAlign = "LEFT"
 
-        # Test Results Table
-        report_table_data = [["Test Results", ""]] + [[k, str(v)] for k, v in report_data.items()]
-        report_table = Table(report_table_data, colWidths=[100, 150])
-        report_table.setStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
-            ("ALIGN", (0, 0), (-1, 0), "CENTER"),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
+        #story.append(client_info_table)
+        #story.append(Spacer(1, 5))
+
+        # === Test Results Table ===
+        test_results_data = [
+            ["Test Results", ""],
+            ["Avg RMR (kcal/day)", test_results.get("Avg RMR", "N/A")],
+            ["Predicted RMR (kcal/day)", test_results.get("Predicted RMR", "N/A")],
+            ["RQ", test_results.get("RQ", "N/A")]
+        ]
+        
+        test_results_table = Table(test_results_data, colWidths=[140, 100])
+        test_results_table.setStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E6F2FF")),  # light blue header
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#0077CC")),  # dark blue text
+            ("ALIGN", (0, 0), (-1, -1), "LEFT"),
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("GRID", (0, 0), (-1, -1), 1, colors.black),
         ])
-        story.append(report_table)
-        story.append(FrameBreak())
-        story.append(Spacer(1, 110))
+        test_results_table.hAlign = "LEFT"
 
-        # Summary Report Section
-        story.extend([
-            Paragraph("<b>Summary Report:</b>", styles["Heading3"]),
-            Spacer(1, 10),
-            Paragraph(initial_report_text or "No report provided.", styles["Normal"]),
-            Spacer(1, 20),
-            NextPageTemplate('PlotPage'),
-            PageBreak()
+        #story.append(test_results_table)
+        #story.append(Spacer(1, 5))
+
+        # --- helper to convert a buffer to an Image flowable ---
+        def _img(buf, w, h):
+            im = Image(buf, width=w, height=h)
+            im.hAlign = "CENTER"
+            return im
+
+        # First two plots are gauges
+        plot_bufs = pdf_buffers[:2]
+
+        # Optional: third plot (line chart, pie, etc.)
+        third_plot_buf = pdf_buffers[2] if len(pdf_buffers) > 2 else None
+
+        # --- sizes ---
+        left_w   = 260  # width for left column (tables)
+        gauge_w  = 220 # width per gauge (side by side inside right cell)
+        gauge_h  = 60
+
+        # --- left side: stack tables vertically ---
+        left_stack = Table([[client_info_table],
+                            [test_results_table]],
+                        colWidths=[left_w])
+        left_stack.setStyle([
+            ("LEFTPADDING",(0,0),(-1,-1),0),
+            ("RIGHTPADDING",(0,0),(-1,-1),0),
+            ("TOPPADDING",(0,0),(-1,-1),0),
+            ("BOTTOMPADDING",(0,0),(-1,-1),0),
+        ] + ([("BOX",(0,0),(-1,-1),0.75,colors.red)] if DEBUG else []))
+
+        # Two gauges side by side
+        img_left  = _img(plot_bufs[0][1], gauge_w, gauge_h)
+        img_right = _img(plot_bufs[1][1], gauge_w, gauge_h)
+
+        right_row = Table([[img_left, img_right]],
+                        colWidths=[gauge_w, gauge_w])
+        
+        right_row.setStyle([
+            ("SPAN", (0, 1), (1, 1)),                # make the line chart span 2 columns
+            ("LEFTPADDING",  (0,0), (-1,-1), 0),
+            ("RIGHTPADDING", (0,0), (-1,-1), 0),
+            ("TOPPADDING",   (0,0), (-1,-1), 4),
+            ("BOTTOMPADDING",(0,0), (-1,-1), 0),
+            # ("BOX",(0,0),(-1,-1),0.75,colors.blue),  # debug
+        ])
+        
+        img_third = _img(third_plot_buf[1], gauge_w * 2, 100)  # span both columns
+
+        # Stack gauges and third plot vertically
+        right_column = Table(
+            [[right_row], [img_third]],
+            colWidths=[gauge_w * 2]
+        )
+        right_column.setStyle([
+            ("TOPPADDING", (0,0), (-1,-1), 0),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 0),
+            ("ALIGN", (0,0), (-1,-1), "CENTER"),
+            ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+        ] + ([("BOX",(0,0),(-1,-1),0.75,colors.green)] if DEBUG else []))
+        
+        # --- outer table: tables on left, gauges on right ---
+        usable = doc.width
+        left_w  = 300  
+        right_w = usable - left_w
+
+        main_top = Table([[left_stack, right_column]], colWidths=[left_w-20, right_w])
+        main_top.hAlign = "LEFT"
+        main_top.setStyle([
+            ("VALIGN",(0,0),(-1,-1),"TOP"),
         ])
 
-        # ==============================
-        # Add Plots + Comments (2 plots per page)
-        # ==============================
+        story.append(main_top)
+        story.append(Spacer(1, 10))
 
-        for i in range(0, len(pdf_buffers), 2):
-            left = pdf_buffers[i]
-            right = pdf_buffers[i+1] if i+1 < len(pdf_buffers) else None
+        # add pie chart
+        if len(pdf_buffers) > 3:
+            pie_buf = pdf_buffers[3][1]
+            pie_img = _img(pie_buf, doc.width/3, 250)
+            pie_img.hAlign = "LEFT"
+            story.append(pie_img)
 
-            # Add left and right plots
-            for plot_buf in [left, right]:
-                if not plot_buf:
-                    continue
-                plot_name, buf, _ = plot_buf
-                img = Image(buf, width=half_width, height=190)
-                img.hAlign = "CENTER"
-                story.append(img)
-                story.append(FrameBreak())
+        # === Footer with Solid Blue Line ===
+        def footer(canvas, doc):
+            canvas.saveState()
+            canvas.setFillColor(colors.HexColor("#0077CC"))  # solid blue
+            canvas.rect(
+                x=doc.leftMargin,
+                y=15,  # 15 points from bottom
+                width=doc.width,
+                height=10,
+                fill=True,
+                stroke=0
+            )
+            canvas.restoreState()
 
-            # Add Comments
-            story.append(Paragraph("<b>Comments:</b>", styles["Heading2"]))
-            story.append(Spacer(1, 10))
-            for plot_buf in [left, right]:
-                if not plot_buf:
-                    continue
-                plot_name, _, comment = plot_buf
-                story.append(Paragraph(f"<b>{plot_name}:</b>", styles["Normal"]))
-                story.append(Paragraph(comment or "No comment provided.", styles["Normal"]))
-                story.append(Spacer(1, 10))
-
-            story.append(PageBreak())
-
-        # ==============================
-        # Build and Save PDF
-        # ==============================
-
-        doc.build(story)
+        # Build PDF 
+        doc.build(story, onFirstPage=footer, onLaterPages=footer)
 
         st.success("✅ PDF generated successfully!")
         #st.write("PDF saved as:", pdf_path)
@@ -618,22 +735,22 @@ class RMRTest:
             st.download_button("📥 Download PDF", f, file_name=pdf_path)
 
         # Upload to AWS S3
-        bucket_name = "champ-hpl-bucket"
-        s3_key = f"reports/{os.path.basename(pdf_path)}"
+        # bucket_name = "champ-hpl-bucket"
+        # s3_key = f"reports/{os.path.basename(pdf_path)}"
 
-        try:
-            s3_client.upload_file(
-                Filename=pdf_path,
-                Bucket=bucket_name,
-                Key=s3_key,
-                ExtraArgs={
-                    "ContentType": "application/pdf",
-                    "ContentDisposition": "inline"
-                }
-            )
-            st.success("📤 Report successfully uploaded to S3!")
-        except Exception as e:
-            st.error(f"❌ Upload failed: {e}")
+        # try:
+        #     s3_client.upload_file(
+        #         Filename=pdf_path,
+        #         Bucket=bucket_name,
+        #         Key=s3_key,
+        #         ExtraArgs={
+        #             "ContentType": "application/pdf",
+        #             "ContentDisposition": "inline"
+        #         }
+        #     )
+        #     st.success("📤 Report successfully uploaded to S3!")
+        # except Exception as e:
+        #     st.error(f"❌ Upload failed: {e}")
 
         # Reset session state
         st.session_state.reviewing = False

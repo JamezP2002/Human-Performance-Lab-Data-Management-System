@@ -317,8 +317,16 @@ if st.session_state['report_builder']:
                 st.markdown(f"**Predicted RMR:** {results.get('Predicted RMR', 'N/A')} kcal/day")
             with col7:
                 st.markdown(f"**RQ:** {results.get('RQ', 'N/A')} ")
-            
 
+            levels = ["sedentary", "light", "moderate", "active", "very active"]
+            default_level = st.session_state.get("activity_level", "moderate")
+            st.session_state["activity_level"] = st.selectbox(
+                "Activity Level",
+                levels,
+                index=levels.index(default_level),
+                key="activity_level_control"
+            )
+            
             # Optional: Display full test data as raw dataframe
             if st.checkbox("Show raw tabular data"):
                 st.dataframe(df)
