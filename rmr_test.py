@@ -11,9 +11,11 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Tabl
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 from reportlab.lib.units import inch
+from reportlab.platypus import Table, TableStyle, KeepTogether, KeepInFrame, Paragraph, Spacer
 import io
 import numpy as np
 from datetime import datetime
+import time
 
 class RMRTest:
     def __init__(self, user_id=None):
@@ -170,14 +172,14 @@ class RMRTest:
             ax.set_title("Resting Energy Expenditure (REE)")
             ax.legend(loc="upper right", bbox_to_anchor=(1.2, 1), fontsize='small')
 
-        # TDEE pie chart
-        i = 0  
+        # TDEE pie chart (USER INPUT REQUIRED)
         def plot_tdee_pie(ax, df, activity_level = None):
             # Pull BMR (or RMR) from your calculated results
-            bmr = st.session_state.get("rmr_data", {}).get("Avg RMR", 0)
+            bmr = getattr(self, "results", {}).get("Avg RMR", 0)
+            #print(f"Using BMR: {bmr}")
 
             if activity_level is None:
-                activity_level = st.session_state.get("activity_level", "moderate")
+                activity_level = st.session_state.get("activity_level")
 
             # Simple presets for EAT/NEAT (kcal/day).
             presets = {
@@ -198,7 +200,7 @@ class RMRTest:
 
             labels = ["BMR", "TEF", "EAT", "NEAT"]
             sizes  = [bmr, tef, eat, neat]
-            colors = ['#66b3ff', '#ff9999', '#99ff99', '#ffcc99']
+            colors = ["#0080ff", '#ff9999', '#99ff99', '#ffcc99']
 
             def fmt(pct):
                 kcal = pct * tdee_total / 100.0
@@ -213,13 +215,60 @@ class RMRTest:
                 textprops={'fontsize': 8}
             )
             ax.axis('equal')
-            ax.set_title("TDEE Breakdown", fontsize=16, fontweight="bold")
+            ax.set_title("Total Daily Energy Expenditure (Actual)", fontsize=16, fontweight="bold")
+
+        # TDEE pie chart (NORMALIZED)
+        def plot_predicted_tdee_pie(ax, df, activity_level = None):
+            # Pull BMR (or RMR) from your calculated results
+            bmr = getattr(self, "results", {}).get("Predicted RMR", 0)
+            #print(f"Using BMR: {bmr}")
+
+            if activity_level is None:
+                activity_level = st.session_state.get("activity_level")
+
+            # Simple presets for EAT/NEAT (kcal/day).
+            presets = {
+                "sedentary":   {"eat": 100, "neat": 200},
+                "light":       {"eat": 200, "neat": 300},
+                "moderate":    {"eat": 300, "neat": 400},
+                "active":      {"eat": 450, "neat": 550},
+                "very active": {"eat": 600, "neat": 700},
+            }
+            eat = presets[activity_level]["eat"]
+            neat = presets[activity_level]["neat"]
+
+            # TEF as exact 10% of TDEE
+            tef_pct = 0.10
+            base = bmr + eat + neat
+            tdee_total = base / (1 - tef_pct) if base > 0 else 0.0
+            tef = tef_pct * tdee_total
+
+            labels = ["BMR", "TEF", "EAT", "NEAT"]
+            sizes  = [bmr, tef, eat, neat]
+            colors = ["#0080ff", "#ff9100", "#fbff00", "#777777"]
+
+            def fmt(pct):
+                kcal = pct * tdee_total / 100.0
+                return f"{pct:.1f}%\n({kcal:.0f} kcal)"
+
+            wedges, texts, autotexts = ax.pie(
+                sizes,
+                labels=labels,
+                autopct=fmt,
+                startangle=90,
+                colors=colors,
+                textprops={'fontsize': 8}
+            )
+            ax.axis('equal')
+            ax.set_title("Total Daily Energy Expenditure (Predicted)", fontsize=16, fontweight="bold")
+
 
         plot_functions = [
             ("REE Bullet Gauge", plot_ree_bullet),
             ("RQ Bullet Gauge", draw_rq_bullet),
             ("RMR Over Time", plot_rmr_over_time),
-            ("TDEE Breakdown", plot_tdee_pie)
+            ("TDEE Breakdown", plot_tdee_pie),
+            ("Predicted TDEE Breakdown", plot_predicted_tdee_pie)
         ]
 
         return plot_functions       
@@ -323,7 +372,6 @@ class RMRTest:
         plot_functions = self.get_plot_functions()
         reports_col = self.db["reports"]
 
-
         # Initialize session state for plots if not already present
         if 'plot_comments' not in st.session_state:
             st.session_state.plot_comments = {}
@@ -356,18 +404,19 @@ class RMRTest:
             # Text box for comment
             col1, col2 = st.columns([3, 1])
             with col1:
-                st.markdown("<div style='max-width: 400px;'>", unsafe_allow_html=True)
-                comment = st.text_area(
-                    "🗨️ Comments:",
-                    key=comment_key,
-                    height=100,
-                    value=comment_dict.get(title, "")
-                )
-                st.markdown("</div>", unsafe_allow_html=True)
+                with st.expander("Add Comments", expanded=False):
+                    st.markdown("<div style='max-width: 400px;'>", unsafe_allow_html=True)
+                    comment = st.text_area(
+                        "🗨️ Comments:",
+                        key=comment_key,
+                        height=100,
+                        value=comment_dict.get(title, "")
+                    )
+                    st.markdown("</div>", unsafe_allow_html=True)
 
             # Checkbox for including/excluding this plot
             with col2:
-                include = st.checkbox("Include in Report", value=plot_flag_dict.get(title, True), key=include_key)
+                include = st.toggle("Include in Report", value=plot_flag_dict.get(title, True), key=include_key)
 
             # ==============================
             # Save Button for Each Section
@@ -423,6 +472,11 @@ class RMRTest:
         # ==============================
 
         if st.button("💾 Save All Comments and Selections"):
+            progress_bar = st.progress(0, "Saving all comments and selections...")
+            for pct in range(101):
+                time.sleep(0.005)  # brief pause to show animation
+                progress_bar.progress(pct, "Saving all comments and selections...")
+
             user_id = st.session_state.selected_client["_id"]
             test_id = st.session_state.selected_test["_id"]
             summary_text = st.session_state.initial_report_text
@@ -461,7 +515,8 @@ class RMRTest:
                 },
                 upsert=True
             )
-            st.success("✅ All comments and selections saved to MongoDB.")
+            st.success("All comments and selections saved to MongoDB.")
+            st.balloons()
 
         # Generate Final PDF Button
         if st.button("📄 Generate PDF Report"):
@@ -701,14 +756,59 @@ class RMRTest:
         ])
 
         story.append(main_top)
-        story.append(Spacer(1, 10))
+        story.append(Spacer(1, 12))
 
-        # add pie chart
-        if len(pdf_buffers) > 3:
-            pie_buf = pdf_buffers[3][1]
-            pie_img = _img(pie_buf, doc.width/3, 250)
-            pie_img.hAlign = "LEFT"
-            story.append(pie_img)
+        # --- grab buffers (adjust indices if needed) ---
+        reg_pie_buf = pdf_buffers[3][1] if len(pdf_buffers) > 3 else None
+        pred_pie_buf = pdf_buffers[4][1] if len(pdf_buffers) > 4 else None
+
+        # --- sizes (all derived from doc.width) ---
+        gutter = 8                          # small space between columns
+        pie_h  = 220                        # row height
+        pie_w  = (doc.width - 2*gutter) * 0.28   # ~28% width for each pie
+        sum_w  = doc.width - (pie_w*2) - (gutter*2)
+
+        # --- build images (only if buffers exist) ---
+        cells = []
+        if reg_pie_buf:
+            reg_pie_img = _img(reg_pie_buf, pie_w, pie_h)
+            reg_pie_img.hAlign = "CENTER"
+            cells.append(reg_pie_img)
+        else:
+            cells.append(Spacer(1, pie_h))
+
+        if pred_pie_buf:
+            pred_pie_img = _img(pred_pie_buf, pie_w, pie_h)
+            pred_pie_img.hAlign = "CENTER"
+            cells.append(pred_pie_img)
+        else:
+            cells.append(Spacer(1, pie_h))
+
+        # --- summary content (shrinks to fit the row height) ---
+        summary_text = st.session_state.get("initial_report_text", "") or "No report provided."
+        summary_flow = [
+            Paragraph("<b>Summary Report</b>", styles["Heading3"]),
+            Spacer(1, 6),
+            Paragraph(summary_text, styles["Normal"]),
+        ]
+        summary_block = KeepInFrame(sum_w, pie_h, summary_flow, mode="shrink")
+        cells.append(summary_block)
+
+        # --- table: 1 row, 3 columns ---
+        pie_row = [cells]
+        pie_table = Table(pie_row, colWidths=[pie_w, pie_w, sum_w], rowHeights=[pie_h])
+
+        pie_table.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("ALIGN",  (0, 0), (1, 0), "CENTER"),   # center pies
+            ("LEFTPADDING",  (0, 0), (-1, -1), 2),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+            ("TOPPADDING",   (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING",(0, 0), (-1, -1), 2),
+            # ("GRID", (0,0), (-1,-1), 0.25, colors.grey),  # debug
+        ]))
+
+        story.append(KeepTogether([pie_table, Spacer(1, 6)]))
 
         # === Footer with Solid Blue Line ===
         def footer(canvas, doc):
