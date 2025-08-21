@@ -34,118 +34,125 @@ st.write("This app will parse the raw excel data and store it in a MongoDB datab
 st.write("The raw excel data will be parsed into a dictionary and stored in the database.")
 st.write("Upload a VO2 Max or RMR data in Excel format to get started.")
 
-# Load the Excel file check which type of data it is
-uploaded_file = st.file_uploader("Choose a file")
+tab1, tab2 = st.tabs(["Upload Data", "View Data"])
 
-if uploaded_file:
-    file_type = uploaded_file.name.split(".")[-1].lower()
+with tab1:
+    # Load the Excel file check which type of data it is
+    uploaded_file = st.file_uploader("Choose a file")
 
-    try:
-        if file_type == "xls":
-            df = pd.read_excel(uploaded_file, header=None, engine="xlrd")
-        elif file_type == "xlsx":
-            df = pd.read_excel(uploaded_file, header=None, engine="openpyxl")
-        else:
-            st.error("Unsupported file type. Please upload a .xls or .xlsx file.")
-    except Exception as e:
-        st.error(f"Failed to read Excel file: {e}")
+    if uploaded_file:
+        file_type = uploaded_file.name.split(".")[-1].lower()
 
-    try:
-        test_degree = df.iloc[11, 1]     
-        test_degree_label = str(test_degree).strip()
-        #st.success(f"Test Degree: {test_degree_label}")
-        parse_param = [test_degree_label]
+        try:
+            if file_type == "xls":
+                df = pd.read_excel(uploaded_file, header=None, engine="xlrd")
+            elif file_type == "xlsx":
+                df = pd.read_excel(uploaded_file, header=None, engine="openpyxl")
+            else:
+                st.error("Unsupported file type. Please upload a .xls or .xlsx file.")
+        except Exception as e:
+            st.error(f"Failed to read Excel file: {e}")
 
-        if parse_param == rmr_params:
-            st.success("RMR data detected.")
-            parser = RMRParser(df)
-            report_name = "RMR Report Info"
-            report_type = "RMR"
-        elif parse_param == vo2max_params:
-            st.success("VO2 Max data detected.")
-            #st.write("Processing VO2 Max data...")
-            parser = VO2MaxParser(df)
-            report_name = "VO2 Max Report Info"
-            report_type = "VO2 Max"
-        else:
-            st.error("Unsupported data type. Please upload a valid RMR or VO2 Max data file.")
+        try:
+            test_degree = df.iloc[11, 1]     
+            test_degree_label = str(test_degree).strip()
+            #st.success(f"Test Degree: {test_degree_label}")
+            parse_param = [test_degree_label]
 
-        parsed = parser.parse()
-        #st.write(parsed) 
+            if parse_param == rmr_params:
+                st.success("RMR data detected.")
+                parser = RMRParser(df)
+                report_name = "RMR Report Info"
+                report_type = "RMR"
+            elif parse_param == vo2max_params:
+                st.success("VO2 Max data detected.")
+                #st.write("Processing VO2 Max data...")
+                parser = VO2MaxParser(df)
+                report_name = "VO2 Max Report Info"
+                report_type = "VO2 Max"
+            else:
+                st.error("Unsupported data type. Please upload a valid RMR or VO2 Max data file.")
 
-        # Extracting parsed data
-        report_info   = parsed["Report Info"]
-        client_info   = parsed["Client Info"]
-        test_protocol = parsed["Test Protocol"]
-        tabular_data  = parsed["Tabular Data"]
+            parsed = parser.parse()
+            #st.write(parsed) 
 
-        name   = client_info["Name"]
-        age    = client_info["Age"]
-        height = client_info["Height"]
-        weight = client_info["Weight"]
+            # Extracting parsed data
+            report_info   = parsed["Report Info"]
+            client_info   = parsed["Client Info"]
+            test_protocol = parsed["Test Protocol"]
+            tabular_data  = parsed["Tabular Data"]
 
-        # Updating the user
-        user = users_collection.find_one({"Name": name})
-        if user:
-            user_id = user["_id"]
-            # check for any changed fields
-            updates = {}
-            if user.get("Age")    != age:    updates["Age"]    = age
-            if user.get("Height") != height: updates["Height"] = height
-            if user.get("Weight") != weight: updates["Weight"] = weight
+            name   = client_info["Name"]
+            age    = client_info["Age"]
+            height = client_info["Height"]
+            weight = client_info["Weight"]
 
-            if updates:
-                users_collection.update_one({"_id": user_id}, {"$set": updates})
-                st.info(f"Updated user fields: {', '.join(updates)}")
-        else:
-            user_doc = {
-                "Name":   name,
-                "Age":    age,
-                "Sex":    client_info["Sex"],
-                "Height": height,
-                "Weight": weight,
-                "test_ids": []
+            # Updating the user
+            user = users_collection.find_one({"Name": name})
+            if user:
+                user_id = user["_id"]
+                # check for any changed fields
+                updates = {}
+                if user.get("Age")    != age:    updates["Age"]    = age
+                if user.get("Height") != height: updates["Height"] = height
+                if user.get("Weight") != weight: updates["Weight"] = weight
+
+                if updates:
+                    users_collection.update_one({"_id": user_id}, {"$set": updates})
+                    st.info(f"Updated user fields: {', '.join(updates)}")
+            else:
+                user_doc = {
+                    "Name":   name,
+                    "Age":    age,
+                    "Sex":    client_info["Sex"],
+                    "Height": height,
+                    "Weight": weight,
+                    "test_ids": []
+                }
+                user_id = users_collection.insert_one(user_doc).inserted_id
+                st.info(f"Created new user: {name}")
+
+            test_document = {
+                "user_id": user_id,
+                "test_type": report_type,
+                "Upload Date": datetime.utcnow(),
+                f"{report_name}": {
+                    "Report Info":   report_info,
+                    "Client Info":   client_info,
+                    "Test Protocol": test_protocol,
+                    "Tabular Data":  tabular_data
+                }
             }
-            user_id = users_collection.insert_one(user_doc).inserted_id
-            st.info(f"Created new user: {name}")
+            test_result = tests_collection.insert_one(test_document)
 
-        test_document = {
-            "user_id": user_id,
-            "test_type": report_type,
-            "Upload Date": datetime.utcnow(),
-            f"{report_name}": {
-                "Report Info":   report_info,
-                "Client Info":   client_info,
-                "Test Protocol": test_protocol,
-                "Tabular Data":  tabular_data
-            }
-        }
-        test_result = tests_collection.insert_one(test_document)
+            # Link it back to the user
+            users_collection.update_one(
+                {"_id": user_id},
+                {"$push": {"test_ids": test_result.inserted_id}}
+            )
 
-        # Link it back to the user
-        users_collection.update_one(
-            {"_id": user_id},
-            {"$push": {"test_ids": test_result.inserted_id}}
-        )
+            # Feedback to the user
+            st.success(f"Test uploaded and linked to user: {name}")
+        except Exception as e:
+            st.error(f"Could not read cells: {e}")
 
-        # Feedback to the user
-        #st.success(f"Test uploaded and linked to user: {name}")
-        with st.expander("View Database Information"):
+        with tab2:
+            st.header("View Database Information")
             st.write("User ID:", user_id)
             st.write("Test Document ID:", test_result.inserted_id)
 
-        with st.expander("View Report Data"):
+            st.header("View Report Data")
             st.subheader("Report Info")
             st.write(report_info)
+
             st.subheader("Client Info")
             st.write(client_info)
+
             st.subheader("Test Protocol")
             st.write(test_protocol)
+
             st.subheader("Tabular Data")
             st.write(tabular_data)
 
-    except Exception as e:
-        st.error(f"Could not read cells: {e}")
-
-else:
-    st.info("📂 Please upload an Excel file to begin.")
+    else:
+        st.info("📂 Please upload an Excel file to begin.")
