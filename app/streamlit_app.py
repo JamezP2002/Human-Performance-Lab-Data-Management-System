@@ -5,10 +5,10 @@ from pymongo import MongoClient
 import bcrypt
 
 # the menu pages
-data_uploader = st.Page("data_uploader.py", title="Upload Data")
+data_uploader = st.Page("data_uploader.py", title="Data Uploader")
 home = st.Page("home.py", title="Home")
-report_creator_page = st.Page("report_creator_page.py", title="Create Report")
-data_viewer = st.Page("report_viewer_page.py", title="View Report")
+report_creator_page = st.Page("report_creator.py", title="Create Report")
+data_viewer = st.Page("report_viewer.py", title="View Report")
 
 # Setup MongoDB connection
 load_dotenv()

@@ -7,20 +7,22 @@ import pandas as pd
 from streamlit_pdf_viewer import pdf_viewer
 
 ###################################
-"""This page allows lab techs to search clients and view/download test reports
-without editing access. Reports are fetched from AWS S3 and metadata from MongoDB."""
+#This page allows lab techs to search clients and view/download test reports
+#without editing access. Reports are fetched from AWS S3 and metadata from MongoDB.
 ###################################
 
 # ===============================
-# Environment & MongoDB Setup
+# Setup: Environment & Database
 # ===============================
-load_dotenv()
 
+# Load environment variables (MongoDB URI, etc.)
+load_dotenv()
 database_credentials = os.getenv("database_credentials")
 aws_access_key = os.getenv("aws_access_key_id")
 aws_secret_key = os.getenv("aws_secret_access_key")
 bucket_name = "champ-hpl-bucket"
 
+# Connect to MongoDB
 client = MongoClient(database_credentials)
 db = client['performance-lab']
 users_col = db['users']
@@ -35,7 +37,7 @@ s3 = boto3.client("s3",
 # ===============================
 # Report Viewer (Read-Only Access)
 # ===============================
-st.title("🧾 Lab Report Viewer (Read-Only)")
+st.title("🧾 Report Viewer (Read-Only)")
 
 # --- Search Section ---
 with st.expander("🔍 Search Clients", expanded=True):

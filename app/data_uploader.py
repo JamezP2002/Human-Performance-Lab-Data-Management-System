@@ -20,8 +20,8 @@ users_collection = db['users']
 tests_collection = db['tests']
 
 # import parser classes
-from vo2max_ingest import VO2MaxParser 
-from rmr_ingest import RMRParser
+from ingest.vo2max_ingest import VO2MaxParser 
+from ingest.rmr_ingest import RMRParser
 
 rmr_params = ["Rest"]
 vo2max_params = ["Maximal"]
@@ -29,7 +29,7 @@ vo2max_params = ["Maximal"]
 ###########################################################################################
 # Introduction 
 ###########################################################################################
-st.title("This is a Data Uploader.")
+st.title("Data Uploader")
 st.write("This app will parse the raw excel data and store it in a MongoDB database.")
 st.write("The raw excel data will be parsed into a dictionary and stored in the database.")
 st.write("Upload a VO2 Max or RMR data in Excel format to get started.")

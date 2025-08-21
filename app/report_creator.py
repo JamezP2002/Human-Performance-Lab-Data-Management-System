@@ -6,9 +6,9 @@ import pandas as pd
 import boto3
 from streamlit_pdf_viewer import pdf_viewer
 
-# loading tests
-from vo2max_test import VO2MaxTest
-from rmr_test import RMRTest
+# loading test imports
+from tests.vo2max_test import VO2MaxTest
+from tests.rmr_test import RMRTest
 
 TEST_CLASS_MAP = {
     "VO2 MAX": VO2MaxTest,
@@ -16,10 +16,10 @@ TEST_CLASS_MAP = {
 }
 
 ###################################
-"""Human Performance Lab Report Builder
-This is the streamlit app for building and reviewing reports based on tests.
-As of right now, it supports VO2 Max tests. It allows users to select a client,
-choose a test, and either generate a new report or edit an existing one."""
+#Human Performance Lab Report Builder
+#This is the streamlit app for building and reviewing reports based on tests.
+#As of right now, it supports VO2 Max tests and RMR tests. It allows users to select a client,
+#choose a test, and either generate a new report or edit an existing one.
 ###################################
 
 # ===============================
@@ -59,7 +59,7 @@ for key in ['test_section', 'report_builder', 'reviewing', 'selected_test', 'sel
 # client Selection Page
 # ===============================
 if not st.session_state['report_builder'] and not st.session_state['reviewing']:
-    st.title("🏃‍♂️ Human Performance Lab Report Builder")
+    st.title("🏃‍♂️ Report Builder")
 
     with st.expander("🔍 Client Select", expanded=True):
         name_query = st.text_input("Search for a client by name")
