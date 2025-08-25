@@ -264,11 +264,8 @@ class RMRTest:
 
 
         plot_functions = [
-            ("REE Bullet Gauge", plot_ree_bullet),
-            ("RQ Bullet Gauge", draw_rq_bullet),
             ("RMR Over Time", plot_rmr_over_time),
             ("TDEE Breakdown", plot_tdee_pie),
-            ("Predicted TDEE Breakdown", plot_predicted_tdee_pie)
         ]
 
         return plot_functions       
@@ -389,7 +386,7 @@ class RMRTest:
             st.markdown(f"### {title}")
 
             # Plot the figure
-            height = 1.5 if "RQ" in title or "REE" in title else 4
+            height = 4
             fig, ax = plt.subplots(figsize = (6,height))
             func(ax, df)
             fig.tight_layout()
@@ -573,10 +570,15 @@ class RMRTest:
             if not include_flags.get(plot_name, True):
                 continue  # Skip plots that user chose not to include
 
-            height = 1.5 if "RQ" in plot_name or "REE" in plot_name or "RMR" in plot_name else 6
-            fig, ax = plt.subplots(figsize=(6, height))
+            height = 3 if "RMR" in plot_name else 4
+            width = 5.5 if "RMR" in plot_name else 6
+            fig, ax = plt.subplots(figsize=(width, height))
             func(ax, df)
-            ax.set_title(plot_name, fontsize=15 if "RQ" in plot_name or "REE" in plot_name or "TDEE" in plot_name else 8 , fontweight='bold')
+            ax.set_title(plot_name, fontsize=12 if "RMR" in plot_name or "TDEE" in plot_name else 8 , fontweight='bold')
+            if "TDEE" in plot_name:
+                texts = ax.texts
+                for text in texts:
+                    text.set_fontsize(10)
             plt.tight_layout()
 
             buf = io.BytesIO()
@@ -611,16 +613,14 @@ class RMRTest:
                 ("VALIGN", (0,0), (-1,-1), "TOP"),
                 ("ALIGN",  (0,0), (-1,-1), "CENTER"),
                 *([("BOX", (0,0), (-1,-1), 1, colors.blue)] if DEBUG else []),
-                # helpful to see padding too:
-                # ("LEFTPADDING",(0,0),(-1,-1),0), ("RIGHTPADDING",(0,0),(-1,-1),0),
-                # ("TOPPADDING",(0,0),(-1,-1),0),  ("BOTTOMPADDING",(0,0),(-1,-1),0),
             ])
             story.append(logo_table)
         else:
             st.warning("Logo file not found, skipping logo in PDF.")
 
         story.append(Spacer(1, -20))
-        # === Title + School (boxed) ===
+
+        # === Title + School ===
         title_para = Paragraph("CHAMP Human Performance RMR Report", styles["Title"])
         subtitle_para = Paragraph('<para align="center">Southern Connecticut State University</para>', styles["Heading2"])
 
@@ -654,11 +654,12 @@ class RMRTest:
 
         client_info_table = Table(client_info_data, colWidths=[100, 140])
         client_info_table.setStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E6F2FF")),  # light blue header
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#0077CC")),  # dark blue text
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E6F2FF")),  
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#0077CC")),
+            ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),   
             ("ALIGN", (0, 0), (-1, -1), "LEFT"),
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("GRID", (0, 0), (-1, -1), 1, colors.black),
+            ("GRID", (0, 0), (-1, -1), 1, colors.grey),
         ])
         client_info_table.hAlign = "LEFT"
 
@@ -674,17 +675,27 @@ class RMRTest:
         ]
         
         test_results_table = Table(test_results_data, colWidths=[140, 100])
-        test_results_table.setStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E6F2FF")),  # light blue header
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#0077CC")),  # dark blue text
-            ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("GRID", (0, 0), (-1, -1), 1, colors.black),
-        ])
-        test_results_table.hAlign = "LEFT"
 
-        #story.append(test_results_table)
-        #story.append(Spacer(1, 5))
+        # --- base style ---
+        style = [
+            ("GRID", (0,0), (-1,-1), 0.25, colors.grey),
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E6F2FF")),  
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#0077CC")),
+            ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),   
+            ("ALIGN", (0,0), (-1,-1), "LEFT"),
+            ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+        ]
+
+        # --- styling for texts ---
+        style += [
+            ("TEXTCOLOR", (1,1), (1,1), colors.red),   # Avg RMR value
+            ("FONTNAME",  (0,1), (1,1), "Helvetica-Bold"),  # Avg RMR row bold
+
+            ("TEXTCOLOR", (1,3), (1,3), colors.red),  # RQ value
+            ("FONTNAME",  (0,3), (1,3), "Helvetica-Bold"),  # RQ row bold
+        ]
+
+        test_results_table.setStyle(TableStyle(style))
 
         # --- helper to convert a buffer to an Image flowable ---
         def _img(buf, w, h):
@@ -692,115 +703,90 @@ class RMRTest:
             im.hAlign = "CENTER"
             return im
 
-        # First two plots are gauges
-        plot_bufs = pdf_buffers[:2]
-
-        # Optional: third plot (line chart, pie, etc.)
-        third_plot_buf = pdf_buffers[2] if len(pdf_buffers) > 2 else None
+        # --- pull RMR chart safely ---
+        chart_buf = pdf_buffers[0] if len(pdf_buffers) > 0 else None
+        chart_data = chart_buf[1] if (chart_buf and isinstance(chart_buf, (list, tuple)) and len(chart_buf) > 1) else None
 
         # --- sizes ---
-        left_w   = 260  # width for left column (tables)
-        gauge_w  = 220 # width per gauge (side by side inside right cell)
-        gauge_h  = 60
+        usable  = doc.width
+        left_w  = 300                      # fixed left column (tables)
+        right_w = usable - left_w          # remaining width for the chart
+        chart_h = 200
 
-        # --- left side: stack tables vertically ---
-        left_stack = Table([[client_info_table],
-                            [test_results_table]],
-                        colWidths=[left_w])
+        # --- left: stack tables vertically ---
+        left_stack = Table(
+            [[client_info_table],
+             ["========================================="],
+            [test_results_table]],
+            colWidths=[left_w]
+        )
         left_stack.setStyle([
-            ("LEFTPADDING",(0,0),(-1,-1),0),
-            ("RIGHTPADDING",(0,0),(-1,-1),0),
-            ("TOPPADDING",(0,0),(-1,-1),0),
-            ("BOTTOMPADDING",(0,0),(-1,-1),0),
-        ] + ([("BOX",(0,0),(-1,-1),0.75,colors.red)] if DEBUG else []))
-
-        # Two gauges side by side
-        img_left  = _img(plot_bufs[0][1], gauge_w, gauge_h)
-        img_right = _img(plot_bufs[1][1], gauge_w, gauge_h)
-
-        right_row = Table([[img_left, img_right]],
-                        colWidths=[gauge_w, gauge_w])
-        
-        right_row.setStyle([
-            ("SPAN", (0, 1), (1, 1)),                # make the line chart span 2 columns
             ("LEFTPADDING",  (0,0), (-1,-1), 0),
             ("RIGHTPADDING", (0,0), (-1,-1), 0),
-            ("TOPPADDING",   (0,0), (-1,-1), 4),
+            ("TOPPADDING",   (0,0), (-1,-1), 0),
             ("BOTTOMPADDING",(0,0), (-1,-1), 0),
-            # ("BOX",(0,0),(-1,-1),0.75,colors.blue),  # debug
-        ])
-        
-        img_third = _img(third_plot_buf[1], gauge_w * 2, 100)  # span both columns
+        ] + ([("BOX",(0,0),(-1,-1),0.75,colors.red)] if DEBUG else []))
 
-        # Stack gauges and third plot vertically
-        right_column = Table(
-            [[right_row], [img_third]],
-            colWidths=[gauge_w * 2]
-        )
+        # --- right: single image or spacer ---
+        right_cell = _img(chart_data, right_w, chart_h) if chart_data else Spacer(1, chart_h)
+
+        right_column = Table([[right_cell]], colWidths=[right_w])
         right_column.setStyle([
-            ("TOPPADDING", (0,0), (-1,-1), 0),
-            ("BOTTOMPADDING", (0,0), (-1,-1), 0),
+            ("LEFTPADDING",  (0,0), (-1,-1), 0),
+            ("RIGHTPADDING", (0,0), (-1,-1), 0),
+            ("TOPPADDING",   (0,0), (-1,-1), 0),
+            ("BOTTOMPADDING",(0,0), (-1,-1), 0),
             ("ALIGN", (0,0), (-1,-1), "CENTER"),
-            ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+            ("VALIGN",(0,0), (-1,-1), "MIDDLE"),
         ] + ([("BOX",(0,0),(-1,-1),0.75,colors.green)] if DEBUG else []))
-        
-        # --- outer table: tables on left, gauges on right ---
-        usable = doc.width
-        left_w  = 300  
-        right_w = usable - left_w
 
-        main_top = Table([[left_stack, right_column]], colWidths=[left_w-20, right_w])
-        main_top.hAlign = "LEFT"
+        # --- outer table: [ left_stack | right_column ] ---
+        main_top = Table([[left_stack, right_column]], colWidths=[left_w, right_w])
+        main_top.hAlign = "CENTER"
         main_top.setStyle([
-            ("VALIGN",(0,0),(-1,-1),"TOP"),
+            ("VALIGN",      (0,0), (-1,-1), "TOP"),
+            ("LEFTPADDING", (0,0), (-1,-1), 0),
+            ("RIGHTPADDING",(0,0), (-1,-1), 0),
+            ("TOPPADDING",  (0,0), (-1,-1), 0),
+            ("BOTTOMPADDING",(0,0),(-1,-1), 0),
         ])
 
         story.append(main_top)
         story.append(Spacer(1, 12))
 
-        # --- grab buffers (adjust indices if needed) ---
-        reg_pie_buf = pdf_buffers[3][1] if len(pdf_buffers) > 3 else None
-        pred_pie_buf = pdf_buffers[4][1] if len(pdf_buffers) > 4 else None
+        # --- layout ---
+        gutter = 8
+        pie_h  = 220
+        pie_w  = (doc.width - gutter) * 0.50          # ~34% left for pie
+        sum_w  = doc.width - pie_w - gutter           # remainder for summary
 
-        # --- sizes (all derived from doc.width) ---
-        gutter = 8                          # small space between columns
-        pie_h  = 220                        # row height
-        pie_w  = (doc.width - 2*gutter) * 0.28   # ~28% width for each pie
-        sum_w  = doc.width - (pie_w*2) - (gutter*2)
+        # --- pie image or spacer ---
+        reg_pie_buf = pdf_buffers[1][1] 
+        img_cell = _img(reg_pie_buf, pie_w, pie_h) if reg_pie_buf else Spacer(1, pie_h)
+        if hasattr(img_cell, "hAlign"):
+            img_cell.hAlign = "LEFT"
 
-        # --- build images (only if buffers exist) ---
-        cells = []
-        if reg_pie_buf:
-            reg_pie_img = _img(reg_pie_buf, pie_w, pie_h)
-            reg_pie_img.hAlign = "CENTER"
-            cells.append(reg_pie_img)
-        else:
-            cells.append(Spacer(1, pie_h))
+        # --- summary block ---
+        summary_text = st.session_state.get("initial_report_text") or "No report provided."
+        summary_block = KeepInFrame(
+            sum_w, pie_h,
+            [
+                Paragraph("<b>Summary Report</b>", styles["Heading3"]),
+                Spacer(1, 6),
+                Paragraph(summary_text, styles["Normal"]),
+            ],
+            mode="shrink"
+        )
 
-        if pred_pie_buf:
-            pred_pie_img = _img(pred_pie_buf, pie_w, pie_h)
-            pred_pie_img.hAlign = "CENTER"
-            cells.append(pred_pie_img)
-        else:
-            cells.append(Spacer(1, pie_h))
-
-        # --- summary content (shrinks to fit the row height) ---
-        summary_text = st.session_state.get("initial_report_text", "") or "No report provided."
-        summary_flow = [
-            Paragraph("<b>Summary Report</b>", styles["Heading3"]),
-            Spacer(1, 6),
-            Paragraph(summary_text, styles["Normal"]),
-        ]
-        summary_block = KeepInFrame(sum_w, pie_h, summary_flow, mode="shrink")
-        cells.append(summary_block)
-
-        # --- table: 1 row, 3 columns ---
-        pie_row = [cells]
-        pie_table = Table(pie_row, colWidths=[pie_w, pie_w, sum_w], rowHeights=[pie_h])
-
+        # --- 1 row, 2 columns: [pie | summary] ---
+        pie_table = Table(
+            [[img_cell, summary_block]],
+            colWidths=[pie_w, sum_w],
+            rowHeights=[pie_h]
+        )
         pie_table.setStyle(TableStyle([
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("ALIGN",  (0, 0), (1, 0), "CENTER"),   # center pies
+            ("VALIGN",       (0, 0), (-1, -1), "TOP"),
+            ("ALIGN",        (0, 0), (0, 0),   "LEFT"),   # left column left-aligned
             ("LEFTPADDING",  (0, 0), (-1, -1), 2),
             ("RIGHTPADDING", (0, 0), (-1, -1), 2),
             ("TOPPADDING",   (0, 0), (-1, -1), 2),
@@ -809,6 +795,15 @@ class RMRTest:
         ]))
 
         story.append(KeepTogether([pie_table, Spacer(1, 6)]))
+
+        # if there is comments for any plots or charts, add them underneath
+        for plot_name, buf, comment in pdf_buffers:
+            if not comment.strip():
+                continue
+            story.append(Spacer(1, 12))
+            story.append(Paragraph(f"<b>{plot_name} Comments:</b>", styles["Heading3"]))
+            story.append(Paragraph(comment, styles["Normal"]))
+            story.append(Spacer(1, 6))
 
         # === Footer with Solid Blue Line ===
         def footer(canvas, doc):
