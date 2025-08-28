@@ -1,0 +1,9 @@
+streamlit>=1.31
+pandas
+numpy
+boto3
+pymongo
+reportlab
+pillow
+matplotlib
+python-dotenv
