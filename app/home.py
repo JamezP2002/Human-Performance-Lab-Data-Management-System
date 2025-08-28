@@ -74,9 +74,9 @@ st.markdown(
                 <b>Available Features:</b>
             </p>
             <p class="features">
-                - <b>Upload Test Data</b>: Upload VO₂ Max test results and protocols.<br>
+                - <b>Upload Test Data</b>: Upload VO₂ Max and RMR test results and metadata.<br>
                 - <b>Create Reports</b>: Build and save detailed lab reports with plots and comments.<br>
-                - <b>View/Download Reports</b>: Search clients and download finalized reports.<br>
+                - <b>View/Download Reports</b>: Search clients and download/view finalized reports.<br>
                 - <b>Secure Cloud Storage</b>: All reports are automatically uploaded to AWS S3.
             </p>
             <p>
