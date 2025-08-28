@@ -81,6 +81,7 @@ st.markdown(
             </p>
             <p>
                 Use the navigation sidebar to get started!
+                github wiki documentation <a href="https://github.com/JamezP2002/Human-Performance-Lab-Data-Management-System/wiki/User-Guide" target="_blank">here</a>.
             </p>
         </div>
     </div>
