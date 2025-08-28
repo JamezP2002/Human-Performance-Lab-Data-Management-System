@@ -8,3 +8,4 @@ pillow
 matplotlib
 python-dotenv
 bcrypt
+pdf_viewer
