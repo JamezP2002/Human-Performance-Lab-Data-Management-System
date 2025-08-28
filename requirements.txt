@@ -7,3 +7,4 @@ reportlab
 pillow
 matplotlib
 python-dotenv
+bcrypt
