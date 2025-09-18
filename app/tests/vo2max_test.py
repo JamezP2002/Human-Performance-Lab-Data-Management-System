@@ -415,7 +415,7 @@ class VO2MaxTest:
 
             # Checkbox for including/excluding this plot
             with col2:
-                include = st.checkbox("Include in Report", value=plot_flag_dict.get(title, True), key=include_key)
+                include = st.toggle("Include in Report", value=plot_flag_dict.get(title, True), key=include_key)
 
             # ==============================
             # Save Button for Each Section
