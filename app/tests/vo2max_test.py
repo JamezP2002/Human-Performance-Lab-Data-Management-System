@@ -471,6 +471,7 @@ class VO2MaxTest:
         # ==============================
 
         if st.button("💾 Save All Comments and Selections"):
+            clicked = st.session_state.get("save_all_clicked", False)
             user_id = st.session_state.selected_client["_id"]
             test_id = st.session_state.selected_test["_id"]
             summary_text = st.session_state.initial_report_text
@@ -512,9 +513,10 @@ class VO2MaxTest:
             st.success("✅ All comments and selections saved to MongoDB.")
 
         # Generate Final PDF Button
-        if st.button("📄 Generate PDF Report"):
-            self.generate_report_data()
-            self.generate_pdf(self.s3_client)
+        if clicked or st.button("📄 Generate PDF Report"):
+            if st.button("📄 Generate PDF Report"):
+                self.generate_report_data()
+                self.generate_pdf(self.s3_client)
 
 
     def generate_pdf(self, s3_client):
