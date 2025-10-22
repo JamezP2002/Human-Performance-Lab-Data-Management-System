@@ -830,22 +830,22 @@ class RMRTest:
             st.download_button("📥 Download PDF", f, file_name=pdf_path)
 
         # Upload to AWS S3
-        bucket_name = "champ-hpl-bucket"
-        s3_key = f"reports/{os.path.basename(pdf_path)}"
+        bucket_name = "champ-reports"
+        s3_key = f"RMRreports/{os.path.basename(pdf_path)}"
 
         try:
-             s3_client.upload_file(
-                 Filename=pdf_path,
-                 Bucket=bucket_name,
-                 Key=s3_key,
-                 ExtraArgs={
-                     "ContentType": "application/pdf",
-                     "ContentDisposition": "inline"
-                 }
-             )
-             st.success("📤 Report successfully uploaded to S3!")
+            s3_client.upload_file(
+                Filename=pdf_path,
+                Bucket=bucket_name,
+                Key=s3_key,
+                ExtraArgs={
+                    "ContentType": "application/pdf",
+                    "ContentDisposition": "inline"
+                }
+            )
+            st.success("📤 Report successfully uploaded to S3!")
         except Exception as e:
-             st.error(f"❌ Upload failed: {e}")
+            st.error(f"❌ Upload failed: {e}")
 
         # Reset session state
         st.session_state.reviewing = False

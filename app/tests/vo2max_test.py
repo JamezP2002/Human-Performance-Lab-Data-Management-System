@@ -724,8 +724,8 @@ class VO2MaxTest:
             st.download_button("📥 Download PDF", f, file_name=pdf_path)
 
         # Upload to AWS S3
-        bucket_name = "champ-hpl-bucket"
-        s3_key = f"reports/{os.path.basename(pdf_path)}"
+        bucket_name = "champ-reports"
+        s3_key = f"VO2reports/{os.path.basename(pdf_path)}"
 
         try:
             s3_client.upload_file(

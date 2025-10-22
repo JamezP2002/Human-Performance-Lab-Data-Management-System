@@ -31,7 +31,6 @@ load_dotenv()
 database_credentials = os.getenv("database_credentials")
 aws_access_key = os.getenv("aws_access_key_id")
 aws_secret_key = os.getenv("aws_secret_access_key")
-bucket_name = "champ-hpl-bucket"
 
 # Connect to MongoDB
 client = MongoClient(database_credentials)
