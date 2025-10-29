@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 import boto3
 import pandas as pd
 from streamlit_pdf_viewer import pdf_viewer
+from botocore.config import Config
+
 
 ###################################
 #This page allows lab techs to search clients and view/download test reports
@@ -20,7 +22,8 @@ load_dotenv()
 database_credentials = os.getenv("database_credentials")
 aws_access_key = os.getenv("aws_access_key_id")
 aws_secret_key = os.getenv("aws_secret_access_key")
-bucket_name = "champ-hpl-bucket"
+bucket_name = "champ-reports"
+aws_region = os.getenv("aws_region")
 
 # Connect to MongoDB
 client = MongoClient(database_credentials)
@@ -31,7 +34,9 @@ reports_col = db['reports']
 # S3 setup
 s3 = boto3.client("s3",
     aws_access_key_id=aws_access_key,
-    aws_secret_access_key=aws_secret_key
+    aws_secret_access_key=aws_secret_key,
+    region_name=aws_region,
+    config=Config(signature_version="s3v4")
 )
 
 # ===============================
@@ -120,14 +125,14 @@ with st.expander("🔍 Search Clients", expanded=True):
                         test_type = selected_report.get("test_type").upper()
                         clean_name = selected_client['Name'].replace(',', '').replace(' ', '_')
                         pdf_filename = f"{test_type}_report_{clean_name}_{test_date_str}.pdf"
-                        s3_key = f"reports/{pdf_filename}"
+                        s3_key = f"{test_type}reports/{pdf_filename}"
 
                         st.subheader("📋 Report")
 
                         # Getting the PDF from S3 to view it
                         url = s3.generate_presigned_url(
                             "get_object",
-                            Params={"Bucket": bucket_name, "Key": s3_key},
+                            Params={"Bucket": bucket_name, "Key": s3_key, 'ResponseContentType': 'application/pdf',"ResponseContentDisposition": "inline"},
                             ExpiresIn=600
                         )
 
