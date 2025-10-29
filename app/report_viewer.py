@@ -125,7 +125,9 @@ with st.expander("🔍 Search Clients", expanded=True):
                         test_type = selected_report.get("test_type").upper()
                         clean_name = selected_client['Name'].replace(',', '').replace(' ', '_')
                         pdf_filename = f"{test_type}_report_{clean_name}_{test_date_str}.pdf"
-                        s3_key = f"{test_type}reports/{pdf_filename}"
+                        s3_key = f"{test_type[0:3]}reports/{pdf_filename}"
+
+                        #st.write(s3_key)
 
                         st.subheader("📋 Report")
 

@@ -15,6 +15,8 @@ from reportlab.platypus import Image as RLImage
 import io
 import numpy as np
 from datetime import datetime
+from botocore.config import Config
+import time
 
 class VO2MaxTest:
     def __init__(self, user_id=None):
@@ -471,7 +473,12 @@ class VO2MaxTest:
         # ==============================
 
         if st.button("💾 Save All Comments and Selections"):
-            clicked = st.session_state.get("save_all_clicked", False)
+
+            progress_bar = st.progress(0, "Saving all comments and selections...")
+            for pct in range(101):
+                time.sleep(0.005)  # brief pause to show animation
+                progress_bar.progress(pct, "Saving all comments and selections...")
+
             user_id = st.session_state.selected_client["_id"]
             test_id = st.session_state.selected_test["_id"]
             summary_text = st.session_state.initial_report_text
@@ -510,13 +517,13 @@ class VO2MaxTest:
                 },
                 upsert=True
             )
-            st.success("✅ All comments and selections saved to MongoDB.")
+            st.success("All comments and selections saved to MongoDB.")
+            st.balloons()
 
         # Generate Final PDF Button
-        if clicked or st.button("📄 Generate PDF Report"):
-            if st.button("📄 Generate PDF Report"):
-                self.generate_report_data()
-                self.generate_pdf(self.s3_client)
+        if st.button("📄 Generate PDF Report"):
+            self.generate_report_data()
+            self.generate_pdf(self.s3_client)
 
 
     def generate_pdf(self, s3_client):
