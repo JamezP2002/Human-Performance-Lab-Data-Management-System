@@ -15,7 +15,7 @@ load_dotenv()
 database_credentials = os.getenv("database_credentials")
 
 client = MongoClient(database_credentials)
-db = client['performance-lab']
+db = client['champ-center']
 auth_users_col = db['authUsers']
 
 # Setup session state for login

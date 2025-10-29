@@ -24,7 +24,7 @@ bucket_name = "champ-hpl-bucket"
 
 # Connect to MongoDB
 client = MongoClient(database_credentials)
-db = client['performance-lab']
+db = client['champ-center']
 users_col = db['users']
 reports_col = db['reports']
 

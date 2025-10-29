@@ -12,7 +12,7 @@ database_credentials = os.getenv("database_credentials")
 
 # Connect to MongoDB
 client = MongoClient(database_credentials)
-db = client['performance-lab']
+db = client['champ-center']
 auth_users_col = db['authUsers']
 
 st.title("🛠️ Create New User Account")

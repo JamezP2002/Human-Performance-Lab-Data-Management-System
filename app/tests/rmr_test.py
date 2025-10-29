@@ -28,7 +28,7 @@ class RMRTest:
         # Setup MongoDB connection
         database_credentials = os.getenv("database_credentials")
         self.client = MongoClient(database_credentials)
-        self.db = self.client['performance-lab']
+        self.db = self.client['champ-center']
         self.collection = self.db['tests']  
         self.users_col = self.db['users']
         self.reports_col = self.db['reports']
@@ -604,7 +604,7 @@ class RMRTest:
         # === Add Logo ===
 
         story.append(Spacer(1, -20))
-        logo_path = "graphics/CHAMPlogo.png"
+        logo_path = "../graphics/CHAMPlogo.png"
         if logo_path and os.path.exists(logo_path):
             logo = Image(logo_path, width=100, height=100)
             # put logo inside a 1x1 table so we can draw a border around it

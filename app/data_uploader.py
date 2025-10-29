@@ -13,7 +13,7 @@ database_credentials = os.getenv("database_credentials")
 
 # connecting to mongodb 
 client = MongoClient(database_credentials)
-db = client['performance-lab']
+db = client['champ-center']
 
 # Users and Tests collections
 users_collection = db['users']

@@ -34,7 +34,7 @@ aws_secret_key = os.getenv("aws_secret_access_key")
 
 # Connect to MongoDB
 client = MongoClient(database_credentials)
-db = client['performance-lab']
+db = client['champ-center']
 users_col = db['users']
 reports_col = db['reports']
 tests_collection = db['tests']  
