@@ -31,6 +31,8 @@ load_dotenv()
 database_credentials = os.getenv("database_credentials")
 aws_access_key = os.getenv("aws_access_key_id")
 aws_secret_key = os.getenv("aws_secret_access_key")
+bucket_name = "champ-reports"
+aws_region = os.getenv("aws_region")
 
 # Connect to MongoDB
 client = MongoClient(database_credentials)
@@ -182,41 +184,37 @@ if not st.session_state['report_builder'] and not st.session_state['reviewing']:
 
 # Futrue: Adding pdf viewer for existing reports
 
-                        # if report_exists:
-                        #     st.markdown("---")
+                    if report_exists:
+                        st.markdown("---")
                         
-                        #     # Generate PDF file name for S3 retrieval
-                        #     date_obj = report_exists.get("test_date", {})
-                        #     if isinstance(date_obj, dict):
-                        #         year = str(date_obj.get("Year", ""))
-                        #         month = str(date_obj.get("Month", "")).zfill(2)
-                        #         day = str(date_obj.get("Day", "")).zfill(2)
-                        #         month_map = {
-                        #             "January": "01", "February": "02", "March": "03", "April": "04",
-                        #             "May": "05", "June": "06", "July": "07", "August": "08",
-                        #             "September": "09", "October": "10", "November": "11", "December": "12"
-                        #         }
-                        #         month = month_map.get(month, month)
-                        #         test_date_str = f"{year}-{month}-{day}"
-                        #     else:
-                        #         test_date_str = "unknown-date"
+                        # Generate PDF file name for S3 retrieval
+                        date_obj = report_exists.get("test_date", {})
+                        if isinstance(date_obj, dict):
+                            year = str(date_obj.get("Year", ""))
+                            month = str(date_obj.get("Month", "")).zfill(2)
+                            day = str(date_obj.get("Day", "")).zfill(2)
+                            month_map = {
+                                "January": "01", "February": "02", "March": "03", "April": "04",
+                                "May": "05", "June": "06", "July": "07", "August": "08",
+                                "September": "09", "October": "10", "November": "11", "December": "12"
+                            }
+                            month = month_map.get(month, month)
+                            test_date_str = f"{year}-{month}-{day}"
+                        else:
+                            test_date_str = "unknown-date"
 
-                        #     test_type = report_exists.get("test_type", "vo2max").lower()
-                        #     clean_name = selected_client['Name'].replace(',', '').replace(' ', '_')
-                        #     pdf_filename = f"test_report_{clean_name}_{test_date_str}.pdf"
-                        #     s3_key = f"reports/{pdf_filename}"
+                        test_type = report_exists.get("test_type").upper()
+                        clean_name = selected_client['Name'].replace(',', '').replace(' ', '_')
+                        pdf_filename = f"{test_type}_report_{clean_name}_{test_date_str}.pdf"
+                        s3_key = f"{test_type[0:3]}reports/{pdf_filename}"
 
-                        #     st.subheader("📋 Report")
+                        #st.write(s3_key)
 
-                        #     # Getting the PDF from S3 to view it
-                        #     url = s3.generate_presigned_url(
-                        #         "get_object",
-                        #         Params={"Bucket": bucket_name, "Key": s3_key},
-                        #         ExpiresIn=600
-                        #     )
-                        #     st.markdown(f"""
-                        #         <iframe src="{url}" width="100%" height="800px" type="application/pdf"></iframe>
-                        #         """, unsafe_allow_html=True)
+                        st.subheader("📋 Report (Preview)")
+
+                        obj = s3.get_object(Bucket=bucket_name, Key=s3_key)
+                        pdf_bytes = obj["Body"].read()
+                        pdf_viewer(input=pdf_bytes)
 
             else:
                 st.warning("No matching client found.")

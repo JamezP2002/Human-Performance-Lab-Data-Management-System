@@ -674,6 +674,21 @@ class VO2MaxTest:
             ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ])
+
+        # get the Vo2 max and percentile highlighted red
+        METRIC_COLUMN = 0
+        VALUE_COLUMN = 1
+        HIGHLIGHTED_METRICS = ["Max VO2", "VO2max Percentile"]
+
+        # Apply red color to specific metrics
+        for row_idx, row in enumerate(vo2_table_data):
+            if row[METRIC_COLUMN] in HIGHLIGHTED_METRICS:
+                vo2_table.setStyle([
+                    ("TEXTCOLOR", (VALUE_COLUMN, row_idx), (VALUE_COLUMN, row_idx), colors.red),
+                    ("FONTNAME", (VALUE_COLUMN, row_idx), (VALUE_COLUMN, row_idx), "Helvetica-Bold"),
+                    ("FONTNAME", (METRIC_COLUMN, row_idx), (METRIC_COLUMN, row_idx), "Helvetica-Bold"),
+                ])
+
         story.append(vo2_table)
         story.append(FrameBreak())
         story.append(Spacer(1, 110))
