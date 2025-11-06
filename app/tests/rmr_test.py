@@ -605,7 +605,7 @@ class RMRTest:
         # === Add Logo ===
 
         story.append(Spacer(1, -20))
-        logo_path = "../graphics/CHAMPlogo.png"
+        logo_path = "../../graphics/CHAMPlogo.png"
         if logo_path and os.path.exists(logo_path):
             logo = Image(logo_path, width=100, height=100)
             # put logo inside a 1x1 table so we can draw a border around it

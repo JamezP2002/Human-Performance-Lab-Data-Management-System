@@ -638,7 +638,7 @@ class VO2MaxTest:
         story = []
 
         # Add Logo
-        logo_path = "../graphics/CHAMPlogo.png"
+        logo_path = "../../graphics/CHAMPlogo.png"
         if logo_path and os.path.exists(logo_path):
             logo = Image(logo_path, width=100, height=100)
             logo.hAlign = "CENTER"
