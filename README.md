@@ -5,14 +5,40 @@ This project is a **Human Performance Lab Data Management System** designed to s
 
 ## Features
 ### Implemented Tests:
-- **VO2 Max Test**: Extracts relevant data from an uploaded Excel file, structures it into JSON format, and stores it in MongoDB. Generates visualizations such as:
-  - V-Slope 
-  - VO2 over time
-  - Heart rate over time
-  - Fat and carbohydrate oxidation rates
-  - Ventilatory equivalents & end-tidal CO2/O2 tension
-  - Respiratory exchange ratio (RER)
-- **Resting Metabolic Rate (RMR) Test**: (Implementation details TBD)
+- **VO2 Max Test**: Implemented. Key features added:
+  - Parses VO2 Max test documents (Excel/JSON) and converts tabular data into a pandas DataFrame for analysis and display.
+  - Interactive Streamlit workflow to:
+    - Render all diagnostic plots and collect per‑plot comments.
+    - Toggle inclusion/exclusion of individual plots.
+    - Save per‑plot comments and report summary to MongoDB.
+  - Plotting utilities include:
+    - V‑Slope analysis with ventilatory threshold detection.
+    - VO2 uptake over time with trendline.
+    - Heart rate over time.
+    - Fat and carbohydrate (CHO) oxidation rates with dual y‑axis.
+    - Ventilatory equivalents with end‑tidal CO2 and O2 tensions.
+    - Respiratory exchange ratio (RER) over time.
+  - PDF report generation using ReportLab:
+    - Custom layout with logo, title, client info and test results side‑by‑side, charts (2 per page) and comments.
+    - Output saved locally, downloadable via Streamlit, and optionally uploaded to AWS S3.
+  - Session state integration for seamless review/edit/save cycles inside Streamlit.
+  - Reports stored/updated in MongoDB with plot metadata (index, title, comment, include flag) and test date.
+
+- **Resting Metabolic Rate (RMR) Test**: Implemented. Key features added:
+  - Parses RMR test documents and converts tabular data into a pandas DataFrame for analysis and display.
+  - Interactive Streamlit workflow to:
+    - Display plots and collect per‑plot comments.
+    - Toggle inclusion/exclusion of individual plots.
+    - Save per‑plot comments and report summary to MongoDB.
+  - Plotting utilities include:
+    - RMR over time with optional trend line.
+    - Total Daily Energy Expenditure (TDEE) pie chart.
+  - PDF report generation using ReportLab:
+    - Custom layout with logo, title, client info and test results side‑by‑side, charts, summary, and comments.
+    - Output saved locally and offered for download in Streamlit.
+    - Optional upload to AWS S3 (configurable via environment variables).
+  - Session state integration for seamless review/edit/save cycles.
+  - Reports stored/updated in MongoDB with plot metadata (index, title, comment, include flag) and test date.
 
 ### Data Processing:
 - Parses **Excel files** containing test results
@@ -63,15 +89,17 @@ This project is a **Human Performance Lab Data Management System** designed to s
    streamlit run streamlit_app.py
    ```
 
-## Usage (as of 2/15/2025)
+## Usage (as of 11/08/2025)
 - Upload an **Excel file** containing test data.
-- View **parsed patient and test information**.
+- Sorting based on **VO2** or **RMR** test.
+- View **parsed client and test information**.
 - Analyze **visualizations** to interpret results.
+- Storing report in **AWS S3**.
+- Allowing viewing of PDF without downloading. 
 
 ## Future Improvements
 - Implement additional tests beyond **VO2 Max** and **RMR**.
 - Enhance **data validation and error handling**.
-- Add **user authentication** for secure access.
 - Implement **exporting features** for report generation.
 - Implement **Reports** to generate a report for the user. 
 
