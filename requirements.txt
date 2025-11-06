@@ -10,3 +10,4 @@ python-dotenv
 bcrypt
 xlrd>=2.0.1
 streamlit_pdf_viewer 
+openpyxl
